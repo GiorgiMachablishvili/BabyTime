@@ -1,0 +1,20 @@
+//
+//  SettingsViewController.swift
+//  Baby Time
+//
+//  Created by Gio's Mac on 23.12.25.
+//
+
+import UIKit
+
+class SettingsViewController: UIViewController {
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+
+    }
+    
+
+
+}

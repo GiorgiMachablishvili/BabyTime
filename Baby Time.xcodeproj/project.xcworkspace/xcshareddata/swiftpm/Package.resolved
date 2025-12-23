@@ -1,0 +1,24 @@
+{
+  "originHash" : "12654ba409a6d8921801c600208502b1621e0556d3a7ef98ed7de44870f1a884",
+  "pins" : [
+    {
+      "identity" : "progresshud",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/relatedcode/ProgressHUD",
+      "state" : {
+        "revision" : "44e04c79ae75ed5e979df517ab13d8a1aa9b41a5",
+        "version" : "15.0.1"
+      }
+    },
+    {
+      "identity" : "snapkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SnapKit/SnapKit",
+      "state" : {
+        "revision" : "2842e6e84e82eb9a8dac0100ca90d9444b0307f4",
+        "version" : "5.7.1"
+      }
+    }
+  ],
+  "version" : 3
+}
