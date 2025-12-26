@@ -1,29 +1,42 @@
-//
-//  DiaperViewController.swift
-//  Baby Time
-//
-//  Created by Gio's Mac on 23.12.25.
-//
+
 
 import UIKit
+import SnapKit
 
 class DiaperViewController: UIViewController {
+
+    private lazy var sectionHeaderView: SectionHeaderView = {
+        let view = SectionHeaderView()
+        return view
+    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = .green
+        view.backgroundColor = .viewsBackGourdColor
+
+        setupUI()
+        setupConstraints()
+        configureViews()
     }
-    
 
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
+    private func setupUI() {
+        view.addSubview(sectionHeaderView)
     }
-    */
 
+    private func setupConstraints() {
+        sectionHeaderView.snp.remakeConstraints { make in
+            make.top.leading.trailing.equalToSuperview()
+            make.height.equalTo(120 * Constraint.xCoeff)
+        }
+    }
+
+    private func configureViews() {
+        sectionHeaderView.configure(
+            title: "Diaper Log",
+            subtitle: "Track diaper changes",
+            showsPlusButton: true,
+            plusColor: .diaperViewColor
+        )
+    }
 }

@@ -4,6 +4,8 @@
 import UIKit
 
 extension UIColor {
+    static let viewsBackGourdColor = UIColor(hexString: "#fffae7")
+
     static let buttonGayColor = UIColor(hexString: "#F2F2F2")
 
     static let pressButtonColor = UIColor(hexString: "#e3ba91")
@@ -23,4 +25,6 @@ extension UIColor {
     static let growthViewColor = UIColor(hexString: "#82dbed")
 
     static let labelWhiteColor = UIColor(hexString: "#FFFFFF")
+
+    static let orangeColor = UIColor(hexString: "#F28C28")
 }

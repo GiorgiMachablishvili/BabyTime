@@ -119,7 +119,12 @@ class MainViewController: UIViewController {
         let view = FeedingView()
         view.isHidden = true
         view.onTapCloseButton = { [weak self] in
-            self?.feedingView.isHidden = true
+            guard let self = self else { return }
+            UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut]) {
+                self.feedingView.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
+            } completion: { _ in
+                self.feedingView.isHidden = true
+            }
         }
         return view
     }()
@@ -128,13 +133,20 @@ class MainViewController: UIViewController {
         let view = DaiperView()
         view.isHidden = true
         view.onTapCloseButton = { [weak self] in
-            self?.daiperView.isHidden = true
+            guard let self = self else { return }
+            UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut]) {
+                self.daiperView.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
+            } completion: { _ in
+                self.daiperView.isHidden = true
+            }
         }
         return view
     }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        view.backgroundColor = .viewsBackGourdColor
 
         setupUI()
         setupConstraints()
@@ -232,6 +244,8 @@ class MainViewController: UIViewController {
             make.edges.equalToSuperview()
         }
 
+        // Prepare diaper view off-screen for slide-in animation
+        daiperView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
     }
 
     @objc private func pressBabyButton() {
@@ -256,10 +270,20 @@ class MainViewController: UIViewController {
 
     @objc private func feedingActionCardButtonPressed() {
         feedingView.isHidden = false
+        // Reset starting position off-screen
+        feedingView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
+        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0.6, options: [.curveEaseInOut]) {
+            self.feedingView.transform = .identity
+        }
     }
 
     @objc private func diaperActionCardButtonPressed() {
         daiperView.isHidden = false
+        // Reset starting position off-screen
+        daiperView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
+        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0.6, options: [.curveEaseInOut]) {
+            self.daiperView.transform = .identity
+        }
     }
 
     @objc private func sleepActionCardButtonPressed() {
