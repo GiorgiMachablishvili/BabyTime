@@ -3,7 +3,7 @@ import SnapKit
 
 class MainViewController: UIViewController {
 
-    var minute = 10
+    var minute = 0
 
     private lazy var babyButton: UIButton = {
         let view = UIButton(type: .system)
@@ -248,81 +248,32 @@ class MainViewController: UIViewController {
         daiperView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
     }
 
-    @objc private func pressBabyButton() {
-        guard let tabBar = self.tabBarController else { return }
-        // Find the index of the tab that hosts SleepViewController (directly or inside a UINavigationController)
-        if let viewControllers = tabBar.viewControllers {
-            if let index = viewControllers.firstIndex(where: { vc in
-                if let nav = vc as? UINavigationController {
-                    return nav.viewControllers.first is SettingsViewController
-                } else {
-                    return vc is SettingsViewController
-                }
-            }) {
-                tabBar.selectedIndex = index
-                // If the selected VC is a nav controller, pop to root to reveal SleepViewController
-                if let nav = tabBar.viewControllers?[index] as? UINavigationController {
-                    nav.popToRootViewController(animated: false)
-                }
-            }
+    /// Switch to a tab by index. Order: 0 = Home, 1 = Feeding, 2 = Sleep, 3 = Diaper, 4 = Settings.
+    private func switchToTab(index: Int) {
+        guard let tabBar = tabBarController, index >= 0, index < (tabBar.viewControllers?.count ?? 0) else { return }
+        tabBar.selectedIndex = index
+        if let nav = tabBar.viewControllers?[index] as? UINavigationController {
+            nav.popToRootViewController(animated: false)
         }
+    }
+
+    @objc private func pressBabyButton() {
+        switchToTab(index: 4) // Settings
     }
 
     @objc private func feedingActionCardButtonPressed() {
-        feedingView.isHidden = false
-        // Reset starting position off-screen
-        feedingView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
-        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0.6, options: [.curveEaseInOut]) {
-            self.feedingView.transform = .identity
-        }
-    }
-
-    @objc private func diaperActionCardButtonPressed() {
-        daiperView.isHidden = false
-        // Reset starting position off-screen
-        daiperView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
-        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0.6, options: [.curveEaseInOut]) {
-            self.daiperView.transform = .identity
-        }
+        switchToTab(index: 1) // Feeding
     }
 
     @objc private func sleepActionCardButtonPressed() {
-        guard let tabBar = self.tabBarController else { return }
-        // Find the index of the tab that hosts SleepViewController (directly or inside a UINavigationController)
-        if let viewControllers = tabBar.viewControllers {
-            if let index = viewControllers.firstIndex(where: { vc in
-                if let nav = vc as? UINavigationController {
-                    return nav.viewControllers.first is SleepViewController
-                } else {
-                    return vc is SleepViewController
-                }
-            }) {
-                tabBar.selectedIndex = index
-                // If the selected VC is a nav controller, pop to root to reveal SleepViewController
-                if let nav = tabBar.viewControllers?[index] as? UINavigationController {
-                    nav.popToRootViewController(animated: false)
-                }
-            }
-        }
+        switchToTab(index: 2) // Sleep
+    }
+
+    @objc private func diaperActionCardButtonPressed() {
+        switchToTab(index: 3) // Diaper
     }
 
     @objc private func growthActionCardButtonPressed() {
-        guard let tabBar = self.tabBarController else { return }
-        // Find the index of the tab that hosts SleepViewController (directly or inside a UINavigationController)
-        if let viewControllers = tabBar.viewControllers {
-            if let index = viewControllers.firstIndex(where: { vc in
-                if let nav = vc as? UINavigationController {
-                    return nav.viewControllers.first is SettingsViewController
-                } else {
-                    return vc is SettingsViewController
-                }
-            }) {
-                tabBar.selectedIndex = index
-                // If the selected VC is a nav controller, pop to root to reveal SleepViewController
-                if let nav = tabBar.viewControllers?[index] as? UINavigationController {
-                    nav.popToRootViewController(animated: false)
-                }
-            }
-        }
+        switchToTab(index: 4) // Settings
     }
 }

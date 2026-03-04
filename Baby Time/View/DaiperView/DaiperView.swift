@@ -6,6 +6,7 @@ import SnapKit
 class DaiperView: UIView {
 
     var onTapCloseButton: (() -> Void)?
+    var onTapSave: ((DiaperType) -> Void)?
     private(set) var selectedDiaperType: DiaperTypeView.DiaperType = .wet
 
     private lazy var blurEffectView: UIView = {
@@ -48,6 +49,16 @@ class DaiperView: UIView {
         return view
     }()
 
+//    private lazy var saveButton: UIButton = {
+//        let view = UIButton(frame: .zero)
+//        view.makeRoundCorners(12)
+//        view.setTitle("Save", for: .normal)
+//        view.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+//        view.setTitleColor(.labelWhiteColor, for: .normal)
+//        view.backgroundColor = .pressButtonColor
+//        return view
+//    }()
+
     private lazy var saveButton: UIButton = {
         let view = UIButton(frame: .zero)
         view.makeRoundCorners(12)
@@ -55,6 +66,7 @@ class DaiperView: UIView {
         view.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
         view.setTitleColor(.labelWhiteColor, for: .normal)
         view.backgroundColor = .pressButtonColor
+        view.addTarget(self, action: #selector(saveTapped), for: .touchUpInside) // ✅
         return view
     }()
 
@@ -97,7 +109,7 @@ class DaiperView: UIView {
         closeFeedingViewButton.snp.remakeConstraints { make in
             make.top.equalTo(feedingView.snp.top).offset(10 * Constraint.xCoeff)
             make.trailing.equalTo(feedingView.snp.trailing).offset(-10 * Constraint.xCoeff)
-            make.height.width.equalTo(34 * Constraint.xCoeff)
+            make.height.width.equalTo(44 * Constraint.xCoeff)
         }
 
         diaperTypeView.snp.makeConstraints { make in
@@ -128,4 +140,14 @@ class DaiperView: UIView {
         self.onTapCloseButton?()
     }
 
+
+    @objc private func saveTapped() {
+        let mapped: DiaperType
+        switch selectedDiaperType {
+        case .wet: mapped = .wet
+        case .mixed: mapped = .mixed
+        case .dirty: mapped = .dirty
+        }
+        onTapSave?(mapped)
+    }
 }

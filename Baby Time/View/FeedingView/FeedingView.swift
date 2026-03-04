@@ -4,6 +4,12 @@ import SnapKit
 class FeedingView: UIView {
 
     var onTapCloseButton: (() -> Void)?
+    var onTapSave: ((FeedingTypeView.FeedingType, String?, String?, String, String) -> Void)? // (type, volumeText, notesText, timeText, dateText)
+    private var feedingViewHeightConstraint: SnapKit.Constraint? = nil
+    private var notesTopToTimeConstraint: SnapKit.Constraint? = nil
+    private var notesTopToVolumeConstraint: SnapKit.Constraint? = nil
+    
+    private var currentFeedingType: FeedingTypeView.FeedingType = .breast
 
     private lazy var blurEffectView: UIView = {
         let view = UIView(frame: .zero)
@@ -45,6 +51,12 @@ class FeedingView: UIView {
         return view
     }()
 
+    private lazy var volumeButtonView: VolumeButtonView = {
+        let v = VolumeButtonView()
+        v.isHidden = true
+        return v
+    }()
+
     private lazy var notesOptionalView: NotesOptionalView = {
         let view = NotesOptionalView()
         return view
@@ -57,6 +69,7 @@ class FeedingView: UIView {
         view.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
         view.setTitleColor(.labelWhiteColor, for: .normal)
         view.backgroundColor = .pressButtonColor
+        view.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
         return view
     }()
 
@@ -65,6 +78,27 @@ class FeedingView: UIView {
         self.backgroundColor = .clear
         setupUI()
         setupConstraint()
+        feedingTypeView.onTypeChanged = { [weak self] type in
+            guard let self = self else { return }
+            self.currentFeedingType = type
+            switch type {
+            case .breast:
+                self.timeButtonView.isHidden = false
+                self.volumeButtonView.isHidden = true
+                self.feedingViewHeightConstraint?.update(offset: 550 * Constraint.xCoeff)
+                self.notesTopToVolumeConstraint?.deactivate()
+                self.notesTopToTimeConstraint?.activate()
+            case .bottle, .formula, .solid:
+                self.timeButtonView.isHidden = true
+                self.volumeButtonView.isHidden = false
+                self.feedingViewHeightConstraint?.update(offset: 600 * Constraint.xCoeff)
+                self.notesTopToTimeConstraint?.deactivate()
+                self.notesTopToVolumeConstraint?.activate()
+            }
+            UIView.animate(withDuration: 0.25) {
+                self.layoutIfNeeded()
+            }
+        }
     }
     
     required init?(coder: NSCoder) {
@@ -78,6 +112,7 @@ class FeedingView: UIView {
         feedingView.addSubview(closeFeedingViewButton)
         feedingView.addSubview(feedingTypeView)
         feedingView.addSubview(timeButtonView)
+        feedingView.addSubview(volumeButtonView)
         feedingView.addSubview(notesOptionalView)
         feedingView.addSubview(saveButton)
     }
@@ -89,7 +124,7 @@ class FeedingView: UIView {
 
         feedingView.snp.remakeConstraints { make in
             make.leading.trailing.bottom.equalToSuperview()
-            make.height.equalTo(550 * Constraint.xCoeff)
+            self.feedingViewHeightConstraint = make.height.equalTo(550 * Constraint.xCoeff).constraint
         }
 
         addFeedingTitleLabel.snp.remakeConstraints { make in
@@ -99,7 +134,7 @@ class FeedingView: UIView {
         closeFeedingViewButton.snp.remakeConstraints { make in
             make.top.equalTo(feedingView.snp.top).offset(10 * Constraint.xCoeff)
             make.trailing.equalTo(feedingView.snp.trailing).offset(-10 * Constraint.xCoeff)
-            make.height.width.equalTo(34 * Constraint.xCoeff)
+            make.height.width.equalTo(44 * Constraint.xCoeff)
         }
 
         feedingTypeView.snp.remakeConstraints { make in
@@ -114,17 +149,60 @@ class FeedingView: UIView {
             make.height.equalTo(80 * Constraint.xCoeff)
         }
 
-        notesOptionalView.snp.remakeConstraints { make in
-            make.top.equalTo(timeButtonView.snp.bottom).offset(20 * Constraint.xCoeff)
+        volumeButtonView.snp.remakeConstraints { make in
+            make.top.equalTo(feedingTypeView.snp.bottom).offset(20 * Constraint.xCoeff)
+            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
+            make.height.equalTo(140 * Constraint.xCoeff)
+        }
+
+        // Create two alternative top constraints for notesOptionalView
+        notesOptionalView.snp.makeConstraints { make in
+            self.notesTopToTimeConstraint = make.top.equalTo(timeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
+            self.notesTopToVolumeConstraint = make.top.equalTo(volumeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
             make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
             make.height.equalTo(80 * Constraint.xCoeff)
         }
+        notesTopToVolumeConstraint?.deactivate()
 
         saveButton.snp.remakeConstraints { make in
             make.top.equalTo(notesOptionalView.snp.bottom).offset(20 * Constraint.yCoeff)
             make.leading.trailing.equalToSuperview().inset(30 * Constraint.yCoeff)
             make.height.equalTo(50 * Constraint.xCoeff)
         }
+    }
+
+    private func currentTimeText() -> String {
+        // If TimeButtonView exposes a selected time string, use it; otherwise fallback to now
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: Date())
+    }
+
+    private func currentDateText() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: Date())
+    }
+
+    private func currentVolumeText() -> String? {
+        guard currentFeedingType != .breast else { return nil }
+        return volumeButtonView.selectedVolumeText
+    }
+
+    private func currentNotesText() -> String? {
+        let s = notesOptionalView.notesText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return s.isEmpty ? nil : s
+    }
+
+    @objc private func saveButtonTapped() {
+        let type = currentFeedingType
+        let volume = currentVolumeText()
+        let notes = currentNotesText()
+        let time = currentTimeText()
+        let date = currentDateText()
+        onTapSave?(type, volume, notes, time, date)
+        // Optionally close
+        self.onTapCloseButton?()
     }
 
     @objc private func closeButtonTapped() {

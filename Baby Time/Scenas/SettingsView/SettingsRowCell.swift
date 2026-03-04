@@ -19,7 +19,7 @@ final class SettingsRowCell: UICollectionViewCell {
     private let iconCircle: UIView = {
         let v = UIView()
         v.backgroundColor = UIColor.systemGray6
-        v.layer.cornerRadius = 18
+        v.layer.cornerRadius = 33
         v.clipsToBounds = true
         return v
     }()
@@ -80,12 +80,12 @@ final class SettingsRowCell: UICollectionViewCell {
         iconCircle.snp.makeConstraints {
             $0.leading.equalToSuperview().offset(16)
             $0.centerY.equalToSuperview()
-            $0.size.equalTo(44)
+            $0.size.equalTo(66)
         }
 
         iconImage.snp.makeConstraints {
             $0.center.equalToSuperview()
-            $0.size.equalTo(20)
+            $0.size.equalTo(60)
         }
 
         chevronImage.snp.makeConstraints {

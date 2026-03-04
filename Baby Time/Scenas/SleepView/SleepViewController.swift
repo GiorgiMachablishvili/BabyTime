@@ -28,7 +28,6 @@ final class SleepViewController: UIViewController {
     private var timer: Timer?
     private var sleepStartDate: Date?
     private var sessions: [SleepSession] = []
-    private var isTimerExpanded: Bool = false
 
     private let timeFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -78,17 +77,11 @@ final class SleepViewController: UIViewController {
         sleepStartDate = Date()
 
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            // update only timer cell
             self?.collectionView.reloadItems(at: [IndexPath(item: 0, section: 0)])
         }
         RunLoop.main.add(timer!, forMode: .common)
 
-        isTimerExpanded = true
-        collectionView.performBatchUpdates({
-            collectionView.reloadItems(at: [IndexPath(item: 0, section: 0)])
-        }, completion: { _ in
-            self.collectionView.collectionViewLayout.invalidateLayout()
-        })
+        collectionView.reloadItems(at: [IndexPath(item: 0, section: 0)])
     }
 
     private func stopSleep() {
@@ -103,13 +96,9 @@ final class SleepViewController: UIViewController {
         let session = SleepSession(start: start, end: end)
         sessions.insert(session, at: 0)
 
-        // reload timer cell + insert history cell
-        isTimerExpanded = false
         collectionView.performBatchUpdates({
             collectionView.reloadItems(at: [IndexPath(item: 0, section: 0)])
             collectionView.insertItems(at: [IndexPath(item: 0, section: 2)])
-        }, completion: { _ in
-            self.collectionView.collectionViewLayout.invalidateLayout()
         })
     }
 
@@ -119,6 +108,14 @@ final class SleepViewController: UIViewController {
         let mins = total / 60
         let secs = total % 60
         return "\(mins):" + String(format: "%02d", secs)
+    }
+
+    private func deleteSleepSession(at indexPath: IndexPath) {
+        guard indexPath.section == 2, indexPath.item < sessions.count else { return }
+        sessions.remove(at: indexPath.item)
+        collectionView.performBatchUpdates {
+            collectionView.deleteItems(at: [indexPath])
+        }
     }
 
     deinit {
@@ -173,6 +170,9 @@ extension SleepViewController: UICollectionViewDataSource {
             let durationMinutes = max(1, durationSeconds / 60)
             let statusText = "sleep time: \(durationMinutes) min"
             cell.configure(statusText: statusText, timeText: timeText, dateText: dateText)
+            cell.onDelete = { [weak self] in
+                self?.deleteSleepSession(at: indexPath)
+            }
             return cell
 
         default:
@@ -191,7 +191,7 @@ extension SleepViewController: UICollectionViewDelegateFlowLayout {
 
         switch indexPath.section {
         case 0:
-            return CGSize(width: width, height: isTimerExpanded ? 340 : 260)
+            return CGSize(width: width, height: 340)
         case 1:
             return CGSize(width: width, height: 44)
         case 2:

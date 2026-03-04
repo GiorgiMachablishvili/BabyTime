@@ -3,6 +3,10 @@ import SnapKit
 
 class NotesOptionalView: UIView {
 
+    var notesText: String? {
+        notesTextField.text
+    }
+
     private lazy var titleLabel: UILabel = {
         let view = UILabel(frame: .zero)
         view.font = UIFont.systemFont(ofSize: 14, weight: .semibold)

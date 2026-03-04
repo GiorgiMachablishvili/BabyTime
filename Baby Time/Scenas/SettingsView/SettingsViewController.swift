@@ -1,9 +1,9 @@
-
-
 import UIKit
 import SnapKit
 
 final class SettingsViewController: UIViewController {
+
+    private var profileImage: UIImage?
 
     private lazy var sectionHeaderView: SectionHeaderView = {
         let view = SectionHeaderView()
@@ -76,7 +76,7 @@ final class SettingsViewController: UIViewController {
     private func setupConstraints() {
         sectionHeaderView.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
-            make.height.equalTo(120 * Constraint.xCoeff)
+            make.height.equalTo(130 * Constraint.xCoeff)
         }
 
         collectionView.snp.makeConstraints { make in
@@ -91,6 +91,38 @@ final class SettingsViewController: UIViewController {
             subtitle: "Manage your app preferences",
             showsPlusButton: false
         )
+    }
+
+    private func showProfilePhotoOptions() {
+        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
+            self?.openImagePicker(sourceType: .camera)
+        })
+        alert.addAction(UIAlertAction(title: "Use Gallery", style: .default) { [weak self] _ in
+            self?.openImagePicker(sourceType: .photoLibrary)
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+        present(alert, animated: true)
+    }
+
+    private func openImagePicker(sourceType: UIImagePickerController.SourceType) {
+        guard UIImagePickerController.isSourceTypeAvailable(sourceType) else {
+            let message = (sourceType == .camera) ? "Camera is not available." : "Photo library is not available."
+            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        let picker = UIImagePickerController()
+        picker.sourceType = sourceType
+        picker.delegate = self
+        picker.allowsEditing = false
+        present(picker, animated: true)
     }
 }
 
@@ -115,13 +147,17 @@ extension SettingsViewController: UICollectionViewDataSource {
 
             cell.configure(
                 title: "Baby Profile",
-                icon: UIImage(systemName: item.iconName)
+                icon: UIImage(systemName: item.iconName),
+                profileImage: profileImage
             )
 
             cell.onTapSave = { [weak self] name, birthday, gender in
-                // Here you can save to UserDefaults/CoreData
                 print("Save Profile:", name ?? "-", birthday ?? "-", gender)
                 self?.view.endEditing(true)
+            }
+
+            cell.onTapProfilePhoto = { [weak self] in
+                self?.showProfilePhotoOptions()
             }
 
             return cell
@@ -157,6 +193,19 @@ extension SettingsViewController: UICollectionViewDelegateFlowLayout {
         case .notifications, .exportData, .darkMode:
             return CGSize(width: width, height: 78)
         }
+    }
+}
+
+extension SettingsViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+        picker.dismiss(animated: true)
+        guard let image = info[.originalImage] as? UIImage else { return }
+        profileImage = image
+        collectionView.reloadItems(at: [IndexPath(item: Item.babyProfile.rawValue, section: 0)])
+    }
+
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true)
     }
 }
 

@@ -3,6 +3,15 @@ import SnapKit
 
 class FeedingTypeView: UIView {
 
+    enum FeedingType {
+        case breast
+        case bottle
+        case formula
+        case solid
+    }
+
+    var onTypeChanged: ((FeedingType) -> Void)?
+
     private let selectedColor = UIColor.pressButtonColor
     private let normalColor = UIColor.buttonGayColor
 
@@ -120,6 +129,13 @@ class FeedingTypeView: UIView {
             button.backgroundColor = isSelected ? selectedColor : normalColor
             button.titleLabel.textColor = isSelected ? UIColor.labelWhiteColor : UIColor.pressButtonTitleColor
             button.iconImageView.tintColor = isSelected ? UIColor.labelWhiteColor : UIColor.pressButtonTitleColor
+        }
+        switch selected {
+        case breastButton: onTypeChanged?(.breast)
+        case bottleButton: onTypeChanged?(.bottle)
+        case formulaButton: onTypeChanged?(.formula)
+        case solidButton: onTypeChanged?(.solid)
+        default: break
         }
     }
 

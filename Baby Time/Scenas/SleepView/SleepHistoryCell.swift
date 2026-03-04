@@ -3,6 +3,42 @@ import SnapKit
 
 final class SleepHistoryCell: UICollectionViewCell {
 
+    var onDelete: (() -> Void)?
+
+    private let deleteStripWidth: CGFloat = 80
+
+    private lazy var deleteStripView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemRed
+        view.isHidden = true
+        view.makeRoundCorners(16)
+        return view
+    }()
+
+    private lazy var deleteLabel: UILabel = {
+        let view = UILabel()
+        view.text = "Delete"
+        view.font = .systemFont(ofSize: 14, weight: .semibold)
+        view.textColor = .white
+        view.textAlignment = .center
+        return view
+    }()
+
+    private lazy var cardWrapperView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.clipsToBounds = true
+        return view
+    }()
+
+    private lazy var contentCard: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemBackground
+        view.layer.cornerRadius = 22
+        view.clipsToBounds = true
+        return view
+    }()
+
     private lazy var emptyStateView: EmptyStateView = {
         let view = EmptyStateView()
         return view
@@ -56,29 +92,47 @@ final class SleepHistoryCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        contentView.backgroundColor = .systemBackground
-        contentView.layer.cornerRadius = 22
+        contentView.backgroundColor = .clear
         contentView.clipsToBounds = true
 
         setupUI()
         setupConstraints()
+        setupSwipeGesture()
         configureViews()
         setContentVisibility(isEmpty: true)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        resetSwipe(animated: false)
+        onDelete = nil
+    }
+
     private func setupUI() {
-        contentView.addSubview(emptyStateView)
-        contentView.addSubview(iconBox)
+        contentView.addSubview(deleteStripView)
+        deleteStripView.addSubview(deleteLabel)
+        contentView.addSubview(cardWrapperView)
+        cardWrapperView.addSubview(contentCard)
+        contentCard.addSubview(emptyStateView)
+        contentCard.addSubview(iconBox)
         iconBox.addSubview(iconImage)
-        contentView.addSubview(titleLabel)
-        contentView.addSubview(subtitleLabel)
-        contentView.addSubview(timeLabel)
-        contentView.addSubview(dateLabel)
+        contentCard.addSubview(titleLabel)
+        contentCard.addSubview(subtitleLabel)
+        contentCard.addSubview(timeLabel)
+        contentCard.addSubview(dateLabel)
     }
 
     private func setupConstraints() {
+        deleteStripView.snp.makeConstraints {
+            $0.top.bottom.trailing.equalToSuperview()
+            $0.width.equalTo(deleteStripWidth)
+        }
+        deleteLabel.snp.makeConstraints { $0.center.equalToSuperview() }
+        cardWrapperView.snp.makeConstraints { $0.edges.equalToSuperview() }
+        contentCard.snp.makeConstraints { $0.edges.equalToSuperview() }
+
         emptyStateView.snp.remakeConstraints {
             $0.top.leading.trailing.equalToSuperview()
             $0.height.equalTo(180)
@@ -119,6 +173,56 @@ final class SleepHistoryCell: UICollectionViewCell {
         }
     }
 
+    private func setupSwipeGesture() {
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        pan.delegate = self
+        cardWrapperView.addGestureRecognizer(pan)
+        cardWrapperView.isUserInteractionEnabled = true
+        let tapDelete = UITapGestureRecognizer(target: self, action: #selector(deleteTapped))
+        deleteStripView.addGestureRecognizer(tapDelete)
+        deleteStripView.isUserInteractionEnabled = true
+    }
+
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        let deltaX = gesture.translation(in: cardWrapperView).x
+        let currentX = cardWrapperView.transform.tx
+        switch gesture.state {
+        case .changed:
+            let newX = max(-deleteStripWidth, min(0, currentX + deltaX))
+            cardWrapperView.transform = CGAffineTransform(translationX: newX, y: 0)
+            gesture.setTranslation(.zero, in: cardWrapperView)
+            deleteStripView.isHidden = (newX >= 0)
+        case .ended, .cancelled:
+            let finalX = max(-deleteStripWidth, min(0, currentX + deltaX))
+            cardWrapperView.transform = CGAffineTransform(translationX: finalX, y: 0)
+            gesture.setTranslation(.zero, in: cardWrapperView)
+            if finalX < -deleteStripWidth / 2 {
+                revealDelete(animated: true)
+                deleteStripView.isHidden = false
+            } else {
+                resetSwipe(animated: true)
+                deleteStripView.isHidden = true
+            }
+        default:
+            break
+        }
+    }
+
+    @objc private func deleteTapped() { onDelete?() }
+
+    private func revealDelete(animated: Bool) {
+        let work = { self.cardWrapperView.transform = CGAffineTransform(translationX: -self.deleteStripWidth, y: 0) }
+        if animated { UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut], animations: work) } else { work() }
+    }
+
+    private func resetSwipe(animated: Bool) {
+        let work = {
+            self.cardWrapperView.transform = .identity
+            self.deleteStripView.isHidden = true
+        }
+        if animated { UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut], animations: work) } else { work() }
+    }
+
     private func configureViews() {
         emptyStateView.configure(
             icon: UIImage(systemName: "fork.knife"),
@@ -147,7 +251,14 @@ final class SleepHistoryCell: UICollectionViewCell {
     }
 
     func configureEmpty() {
-        // Reuse existing empty view configuration and show it
         setContentVisibility(isEmpty: true)
+    }
+}
+
+extension SleepHistoryCell: UIGestureRecognizerDelegate {
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+        let v = pan.velocity(in: cardWrapperView)
+        return abs(v.x) > abs(v.y)
     }
 }

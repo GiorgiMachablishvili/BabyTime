@@ -12,6 +12,7 @@ final class BabyProfileCell: UICollectionViewCell {
     }
 
     var onTapSave: ((_ name: String?, _ birthday: String?, _ gender: String) -> Void)?
+    var onTapProfilePhoto: (() -> Void)?
 
     private let container: UIView = {
         let v = UIView()
@@ -24,7 +25,6 @@ final class BabyProfileCell: UICollectionViewCell {
     private let iconCircle: UIView = {
         let v = UIView()
         v.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.15)
-        v.layer.cornerRadius = 18
         v.clipsToBounds = true
         return v
     }()
@@ -33,7 +33,19 @@ final class BabyProfileCell: UICollectionViewCell {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFit
         iv.tintColor = UIColor.systemOrange.withAlphaComponent(0.7)
+        iv.clipsToBounds = true
+        iv.isUserInteractionEnabled = true
         return iv
+    }()
+
+    private let plusButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "plus"), for: .normal)
+        b.tintColor = .white
+        b.backgroundColor = UIColor.systemTeal
+        b.layer.cornerRadius = 15
+        b.clipsToBounds = true
+        return b
     }()
 
     private let titleLabel: UILabel = {
@@ -110,15 +122,32 @@ final class BabyProfileCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let r = min(iconCircle.bounds.width, iconCircle.bounds.height) / 2
+        iconCircle.layer.cornerRadius = r
+        iconImage.layer.cornerRadius = min(iconImage.bounds.width, iconImage.bounds.height) / 2
+        iconImage.clipsToBounds = true
+        plusButton.layer.cornerRadius = plusButton.bounds.height / 2
+    }
+
     override func prepareForReuse() {
         super.prepareForReuse()
         nameTextField.text = nil
         birthdayTextField.text = nil
     }
 
-    func configure(title: String, icon: UIImage?) {
+    func configure(title: String, icon: UIImage?, profileImage: UIImage? = nil) {
         titleLabel.text = title
-        iconImage.image = icon
+        if let profileImage = profileImage {
+            iconImage.image = profileImage
+            iconImage.contentMode = .scaleAspectFill
+            iconImage.tintColor = nil
+        } else {
+            iconImage.image = icon
+            iconImage.contentMode = .scaleAspectFit
+            iconImage.tintColor = UIColor.systemOrange.withAlphaComponent(0.7)
+        }
     }
 
     private func setupUI() {
@@ -127,6 +156,7 @@ final class BabyProfileCell: UICollectionViewCell {
 
         container.addSubview(iconCircle)
         iconCircle.addSubview(iconImage)
+        container.addSubview(plusButton)
 
         container.addSubview(titleLabel)
 
@@ -161,12 +191,18 @@ final class BabyProfileCell: UICollectionViewCell {
 
         iconCircle.snp.makeConstraints {
             $0.top.leading.equalToSuperview().offset(18)
-            $0.size.equalTo(36)
+            $0.width.equalTo(100)
+            $0.height.equalTo(iconCircle.snp.width)
         }
 
         iconImage.snp.makeConstraints {
-            $0.center.equalToSuperview()
-            $0.size.equalTo(18)
+            $0.edges.equalToSuperview()
+        }
+
+        plusButton.snp.makeConstraints {
+            $0.trailing.equalTo(iconCircle.snp.trailing).offset(4)
+            $0.bottom.equalTo(iconCircle.snp.bottom).offset(4)
+            $0.size.equalTo(30)
         }
 
         titleLabel.snp.makeConstraints {
@@ -230,6 +266,15 @@ final class BabyProfileCell: UICollectionViewCell {
         saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
         calendarButton.addTarget(self, action: #selector(calendarTapped), for: .touchUpInside)
         datePicker.addTarget(self, action: #selector(dateChanged(_:)), for: .valueChanged)
+        plusButton.addTarget(self, action: #selector(profilePhotoTapped), for: .touchUpInside)
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(profilePhotoTapped))
+        iconCircle.addGestureRecognizer(tap)
+        iconCircle.isUserInteractionEnabled = true
+    }
+
+    @objc private func profilePhotoTapped() {
+        onTapProfilePhoto?()
     }
 
     private func updateGenderUI() {
