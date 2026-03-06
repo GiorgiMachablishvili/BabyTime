@@ -7,22 +7,22 @@ final class VolumeButtonView: UIView {
     private let normalColor = UIColor.buttonGayColor
 
     private lazy var titleLabel: UILabel = {
-        let l = UILabel()
-        l.font = .systemFont(ofSize: 14, weight: .semibold)
-        l.textColor = .black
-        l.textAlignment = .left
-        l.text = "Volume (ml)"
-        return l
+        let view = UILabel()
+        view.font = .systemFont(ofSize: 14, weight: .semibold)
+        view.textColor = .black
+        view.textAlignment = .left
+        view.text = "Volume (ml)"
+        return view
     }()
 
     private func makePill(_ text: String) -> TimePillView {
-        let v = TimePillView()
-        v.timeLabel.text = text
-        v.isUserInteractionEnabled = true
-        v.backgroundColor = normalColor
+        let view = TimePillView()
+        view.timeLabel.text = text
+        view.isUserInteractionEnabled = true
+        view.backgroundColor = normalColor
         let tap = UITapGestureRecognizer(target: self, action: #selector(handlePillTap(_:)))
-        v.addGestureRecognizer(tap)
-        return v
+        view.addGestureRecognizer(tap)
+        return view
     }
 
     private lazy var ml30 = makePill("30 ml")
@@ -60,53 +60,53 @@ final class VolumeButtonView: UIView {
     private func setupConstraints() {
         titleLabel.snp.makeConstraints { make in
             make.top.equalToSuperview().offset(20 * Constraint.xCoeff)
-            make.leading.equalToSuperview().offset(10 * Constraint.xCoeff)
+            make.leading.equalToSuperview().offset(10 * Constraint.yCoeff)
         }
 
         ml30.snp.makeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(10 * Constraint.xCoeff)
-            make.leading.equalToSuperview().offset(10 * Constraint.xCoeff)
+            make.leading.equalToSuperview().offset(10 * Constraint.yCoeff)
             make.height.equalTo(40 * Constraint.xCoeff)
-            make.width.equalTo(70 * Constraint.xCoeff)
+            make.width.equalTo(70 * Constraint.yCoeff)
         }
         ml60.snp.makeConstraints { make in
             make.top.equalTo(ml30)
-            make.leading.equalTo(ml30.snp.trailing).offset(5 * Constraint.xCoeff)
+            make.leading.equalTo(ml30.snp.trailing).offset(5 * Constraint.yCoeff)
             make.size.equalTo(ml30)
         }
         ml90.snp.makeConstraints { make in
             make.top.equalTo(ml30)
-            make.leading.equalTo(ml60.snp.trailing).offset(5 * Constraint.xCoeff)
+            make.leading.equalTo(ml60.snp.trailing).offset(5 * Constraint.yCoeff)
             make.size.equalTo(ml30)
         }
         ml120.snp.makeConstraints { make in
             make.top.equalTo(ml30)
-            make.leading.equalTo(ml90.snp.trailing).offset(5 * Constraint.xCoeff)
+            make.leading.equalTo(ml90.snp.trailing).offset(5 * Constraint.yCoeff)
             make.size.equalTo(ml30)
         }
         ml150.snp.makeConstraints { make in
             make.top.equalTo(ml30)
-            make.leading.equalTo(ml120.snp.trailing).offset(5 * Constraint.xCoeff)
+            make.leading.equalTo(ml120.snp.trailing).offset(5 * Constraint.yCoeff)
             make.size.equalTo(ml30)
         }
         ml180.snp.makeConstraints { make in
             make.top.equalTo(ml30.snp.bottom).offset(10 * Constraint.xCoeff)
-            make.leading.equalToSuperview().offset(10 * Constraint.xCoeff)
+            make.leading.equalToSuperview().offset(10 * Constraint.yCoeff)
             make.size.equalTo(ml30)
         }
         ml210.snp.makeConstraints { make in
             make.top.equalTo(ml180)
-            make.leading.equalTo(ml180.snp.trailing).offset(5 * Constraint.xCoeff)
+            make.leading.equalTo(ml180.snp.trailing).offset(5 * Constraint.yCoeff)
             make.size.equalTo(ml30)
         }
         ml240.snp.makeConstraints { make in
             make.top.equalTo(ml180)
-            make.leading.equalTo(ml210.snp.trailing).offset(5 * Constraint.xCoeff)
+            make.leading.equalTo(ml210.snp.trailing).offset(5 * Constraint.yCoeff)
             make.size.equalTo(ml30)
         }
         ml270.snp.makeConstraints { make in
             make.top.equalTo(ml180)
-            make.leading.equalTo(ml240.snp.trailing).offset(5 * Constraint.xCoeff)
+            make.leading.equalTo(ml240.snp.trailing).offset(5 * Constraint.yCoeff)
             make.size.equalTo(ml30)
         }
     }

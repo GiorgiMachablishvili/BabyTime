@@ -13,15 +13,15 @@ final class SleepViewController: UIViewController {
         layout.minimumLineSpacing = 10
         layout.sectionInset = UIEdgeInsets(top: 16, left: 16, bottom: 24, right: 16)
 
-        let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        cv.backgroundColor = .clear
-        cv.dataSource = self
-        cv.delegate = self
+        let view = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        view.backgroundColor = .clear
+        view.dataSource = self
+        view.delegate = self
 
-        cv.register(SleepTimerCell.self, forCellWithReuseIdentifier: "SleepTimerCell")
-        cv.register(SleepHistoryTitleCell.self, forCellWithReuseIdentifier: "SleepHistoryTitleCell")
-        cv.register(SleepHistoryCell.self, forCellWithReuseIdentifier: "SleepHistoryCell")
-        return cv
+        view.register(SleepTimerCell.self, forCellWithReuseIdentifier: "SleepTimerCell")
+        view.register(SleepHistoryTitleCell.self, forCellWithReuseIdentifier: "SleepHistoryTitleCell")
+        view.register(SleepHistoryCell.self, forCellWithReuseIdentifier: "SleepHistoryCell")
+        return view
     }()
 
     // MARK: - Timer state

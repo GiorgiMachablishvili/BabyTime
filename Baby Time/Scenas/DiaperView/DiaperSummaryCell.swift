@@ -37,13 +37,14 @@ final class DiaperSummaryCell: UICollectionViewCell {
         card.addSubview(row)
 
         titleLabel.snp.makeConstraints {
-            $0.top.leading.equalToSuperview().inset(16)
+            $0.top.equalToSuperview().offset(16 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
         }
 
         row.snp.makeConstraints {
-            $0.leading.equalToSuperview().inset(16)
-            $0.top.equalTo(titleLabel.snp.bottom).offset(14)
-            $0.bottom.equalToSuperview().inset(16)
+            $0.leading.equalToSuperview().inset(16 * Constraint.yCoeff)
+            $0.top.equalTo(titleLabel.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().inset(16 * Constraint.xCoeff)
         }
     }
 

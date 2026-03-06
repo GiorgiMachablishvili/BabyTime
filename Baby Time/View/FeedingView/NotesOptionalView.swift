@@ -62,7 +62,7 @@ class NotesOptionalView: UIView {
 
         notesTextField.snp.remakeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(10 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+            make.leading.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
             make.height.equalTo(44 * Constraint.xCoeff)
         }
     }

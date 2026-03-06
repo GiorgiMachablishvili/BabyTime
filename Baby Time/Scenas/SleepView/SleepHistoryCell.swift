@@ -44,14 +44,14 @@ final class SleepHistoryCell: UICollectionViewCell {
         return view
     }()
 
-    private let iconBox: UIView = {
+    private lazy var iconBox: UIView = {
         let view = UIView(frame: .zero)
         view.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.25)
         view.layer.cornerRadius = 14
         return view
     }()
 
-    private let iconImage: UIImageView = {
+    private lazy var iconImage: UIImageView = {
         let view = UIImageView(frame: .zero)
         view.image = UIImage(systemName: "moon")
         view.tintColor = .white
@@ -59,7 +59,7 @@ final class SleepHistoryCell: UICollectionViewCell {
         return view
     }()
 
-    private let titleLabel: UILabel = {
+    private lazy var titleLabel: UILabel = {
         let view = UILabel(frame: .zero)
         view.text = "Sleep"
         view.font = .systemFont(ofSize: 20, weight: .semibold)
@@ -67,14 +67,14 @@ final class SleepHistoryCell: UICollectionViewCell {
         return view
     }()
 
-    private let subtitleLabel: UILabel = {
+    private lazy var subtitleLabel: UILabel = {
         let view = UILabel(frame: .zero)
         view.font = .systemFont(ofSize: 16)
         view.textColor = .secondaryLabel
         return view
     }()
 
-    private let timeLabel: UILabel = {
+    private lazy var timeLabel: UILabel = {
         let view = UILabel(frame: .zero)
         view.font = .systemFont(ofSize: 18, weight: .semibold)
         view.textAlignment = .right
@@ -82,7 +82,7 @@ final class SleepHistoryCell: UICollectionViewCell {
         return view
     }()
 
-    private let dateLabel: UILabel = {
+    private lazy var dateLabel: UILabel = {
         let view = UILabel(frame: .zero)
         view.font = .systemFont(ofSize: 15)
         view.textAlignment = .right
@@ -135,40 +135,42 @@ final class SleepHistoryCell: UICollectionViewCell {
 
         emptyStateView.snp.remakeConstraints {
             $0.top.leading.trailing.equalToSuperview()
-            $0.height.equalTo(180)
+            $0.height.equalTo(180 * Constraint.xCoeff)
         }
 
         iconBox.snp.makeConstraints {
-            $0.leading.equalToSuperview().offset(18)
+            $0.leading.equalToSuperview().offset(18 * Constraint.yCoeff)
             $0.centerY.equalToSuperview()
-            $0.size.equalTo(60)
+            $0.width.equalTo(60 * Constraint.yCoeff)
+            $0.height.equalTo(60 * Constraint.xCoeff)
         }
 
         iconImage.snp.makeConstraints {
             $0.center.equalToSuperview()
-            $0.size.equalTo(26)
+            $0.width.equalTo(26 * Constraint.yCoeff)
+            $0.height.equalTo(26 * Constraint.xCoeff)
         }
 
         titleLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(18)
-            $0.leading.equalTo(iconBox.snp.trailing).offset(16)
-            $0.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12)
+            $0.top.equalToSuperview().offset(18 * Constraint.xCoeff)
+            $0.leading.equalTo(iconBox.snp.trailing).offset(16 * Constraint.yCoeff)
+            $0.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
         }
 
         subtitleLabel.snp.makeConstraints {
-            $0.top.equalTo(titleLabel.snp.bottom).offset(6)
+            $0.top.equalTo(titleLabel.snp.bottom).offset(6 * Constraint.xCoeff)
             $0.leading.equalTo(titleLabel)
-            $0.bottom.equalToSuperview().offset(-18)
-            $0.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12)
+            $0.bottom.equalToSuperview().offset(-18 * Constraint.xCoeff)
+            $0.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
         }
 
         timeLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(18)
-            $0.trailing.equalToSuperview().offset(-18)
+            $0.top.equalToSuperview().offset(18 * Constraint.xCoeff)
+            $0.trailing.equalToSuperview().offset(-18 * Constraint.yCoeff)
         }
 
         dateLabel.snp.makeConstraints {
-            $0.top.equalTo(timeLabel.snp.bottom).offset(6)
+            $0.top.equalTo(timeLabel.snp.bottom).offset(6 * Constraint.xCoeff)
             $0.trailing.equalTo(timeLabel)
         }
     }

@@ -24,10 +24,10 @@ final class DiaperViewController: UIViewController {
     }()
 
     private lazy var collectionView: UICollectionView = {
-        let cv = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
-        cv.backgroundColor = .clear
-        cv.contentInset = UIEdgeInsets(top: 12, left: 0, bottom: 20, right: 0)
-        return cv
+        let view = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
+        view.backgroundColor = .clear
+        view.contentInset = UIEdgeInsets(top: 12, left: 0, bottom: 20, right: 0)
+        return view
     }()
 
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
@@ -77,7 +77,7 @@ final class DiaperViewController: UIViewController {
         }
 
         collectionView.snp.makeConstraints { make in
-            make.top.equalTo(sectionHeaderView.snp.bottom).offset(8)
+            make.top.equalTo(sectionHeaderView.snp.bottom).offset(8 * Constraint.xCoeff)
             make.leading.trailing.bottom.equalToSuperview()
         }
 

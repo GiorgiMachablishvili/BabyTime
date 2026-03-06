@@ -89,40 +89,46 @@ class FeedingTypeView: UIView {
     private func setupConstraints() {
         typeLabel.snp.remakeConstraints { make in
             make.top.equalTo(snp.top).offset(20 * Constraint.xCoeff)
-            make.leading.equalTo(snp.leading).offset(10 * Constraint.xCoeff)
+            make.leading.equalTo(snp.leading).offset(10 * Constraint.yCoeff)
         }
+
+        let horizontalMargin: CGFloat = 10
+        let gapBreastBottle: CGFloat = 4
+        let gapBottleFormula: CGFloat = 4
+        let gapFormulaSolid: CGFloat = 8
+        let totalGaps = horizontalMargin * 2 + gapBreastBottle + gapBottleFormula + gapFormulaSolid
 
         breastButton.snp.remakeConstraints { make in
             make.top.equalTo(typeLabel.snp.bottom).offset(20 * Constraint.xCoeff)
-            make.leading.equalTo(snp.leading).offset(10 * Constraint.xCoeff)
+            make.leading.equalTo(snp.leading).offset(8 * Constraint.yCoeff)
             make.height.equalTo(70 * Constraint.xCoeff)
-            make.width.equalTo(90 * Constraint.xCoeff)
+            make.width.equalTo(80 * Constraint.yCoeff)
         }
 
         bottleButton.snp.remakeConstraints { make in
             make.top.equalTo(breastButton.snp.top)
-            make.leading.equalTo(breastButton.snp.trailing).offset(4 * Constraint.xCoeff)
-            make.height.equalTo(70 * Constraint.xCoeff)
-            make.width.equalTo(90 * Constraint.xCoeff)
+            make.leading.equalTo(breastButton.snp.trailing).offset(8 * Constraint.yCoeff)
+            make.height.equalTo(breastButton.snp.height)
+            make.width.equalTo(breastButton.snp.width)
         }
 
         formulaButton.snp.remakeConstraints { make in
             make.top.equalTo(breastButton.snp.top)
-            make.leading.equalTo(bottleButton.snp.trailing).offset(4 * Constraint.xCoeff)
-            make.height.equalTo(70 * Constraint.xCoeff)
-            make.width.equalTo(90 * Constraint.xCoeff)
+            make.leading.equalTo(bottleButton.snp.trailing).offset(8 * Constraint.yCoeff)
+            make.height.equalTo(breastButton.snp.height)
+            make.width.equalTo(breastButton.snp.width)
         }
 
         solidButton.snp.remakeConstraints { make in
             make.top.equalTo(breastButton.snp.top)
-            make.trailing.equalTo(snp.trailing).offset(-10 * Constraint.xCoeff)
-            make.height.equalTo(70 * Constraint.xCoeff)
-            make.width.equalTo(90 * Constraint.xCoeff)
+            make.leading.equalTo(formulaButton.snp.trailing).offset(8 * Constraint.yCoeff)
+            make.height.equalTo(breastButton.snp.height)
+            make.width.equalTo(breastButton.snp.width)
         }
     }
 
     // MARK: - Selection Handling
-    private func applySelection(selected: ActionCardButton) {
+    private func applySelection(selected: ActionCardButton, notify: Bool = true) {
         let buttons = [breastButton, bottleButton, formulaButton, solidButton]
         buttons.forEach { button in
             let isSelected = (button === selected)
@@ -130,13 +136,27 @@ class FeedingTypeView: UIView {
             button.titleLabel.textColor = isSelected ? UIColor.labelWhiteColor : UIColor.pressButtonTitleColor
             button.iconImageView.tintColor = isSelected ? UIColor.labelWhiteColor : UIColor.pressButtonTitleColor
         }
-        switch selected {
-        case breastButton: onTypeChanged?(.breast)
-        case bottleButton: onTypeChanged?(.bottle)
-        case formulaButton: onTypeChanged?(.formula)
-        case solidButton: onTypeChanged?(.solid)
-        default: break
+        if notify {
+            switch selected {
+            case breastButton: onTypeChanged?(.breast)
+            case bottleButton: onTypeChanged?(.bottle)
+            case formulaButton: onTypeChanged?(.formula)
+            case solidButton: onTypeChanged?(.solid)
+            default: break
+            }
         }
+    }
+
+    /// Set selected type without calling onTypeChanged (e.g. when loading existing reminder).
+    func setSelectedType(_ type: FeedingType) {
+        let button: ActionCardButton
+        switch type {
+        case .breast: button = breastButton
+        case .bottle: button = bottleButton
+        case .formula: button = formulaButton
+        case .solid: button = solidButton
+        }
+        applySelection(selected: button, notify: false)
     }
 
     @objc private func breastTapped() {

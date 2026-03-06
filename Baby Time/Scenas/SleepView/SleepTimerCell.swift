@@ -81,31 +81,33 @@ final class SleepTimerCell: UICollectionViewCell {
 
     private func setupConstraints() {
         moonImageView.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(28)
+            $0.top.equalToSuperview().offset(28 * Constraint.xCoeff)
             $0.centerX.equalToSuperview()
-            $0.size.equalTo(44)
+            $0.width.equalTo(44 * Constraint.yCoeff)
+            $0.height.equalTo(44 * Constraint.xCoeff)
         }
 
         titleLabel.snp.makeConstraints {
-            $0.top.equalTo(moonImageView.snp.bottom).offset(14)
-            $0.leading.trailing.equalToSuperview().inset(16)
+            $0.top.equalTo(moonImageView.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
         }
 
         timeLabel.snp.makeConstraints {
-            $0.top.equalTo(titleLabel.snp.bottom).offset(8)
-            $0.leading.trailing.equalToSuperview().inset(16)
+            $0.top.equalTo(titleLabel.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
         }
 
         actionButton.snp.makeConstraints {
-            $0.top.equalTo(timeLabel.snp.bottom).offset(18)
+            $0.top.equalTo(timeLabel.snp.bottom).offset(18 * Constraint.xCoeff)
             $0.centerX.equalToSuperview()
-            $0.height.width.equalTo(66)
+            $0.width.equalTo(66 * Constraint.yCoeff)
+            $0.height.equalTo(66 * Constraint.xCoeff)
         }
 
         hintLabel.snp.makeConstraints {
-            $0.top.equalTo(actionButton.snp.bottom).offset(14)
-            $0.leading.trailing.equalToSuperview().inset(16)
-            $0.bottom.equalToSuperview().offset(-28)
+            $0.top.equalTo(actionButton.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
+            $0.bottom.equalToSuperview().offset(-28 * Constraint.xCoeff)
         }
     }
 

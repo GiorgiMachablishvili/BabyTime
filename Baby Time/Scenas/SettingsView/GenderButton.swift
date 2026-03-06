@@ -7,12 +7,12 @@ final class GenderButton: UIControl {
 
     var onTap: (() -> Void)?
 
-    private let titleLabel: UILabel = {
-        let l = UILabel()
-        l.font = .systemFont(ofSize: 16, weight: .medium)
-        l.textAlignment = .center
-        l.textColor = UIColor.label.withAlphaComponent(0.5)
-        return l
+    private lazy var titleLabel: UILabel = {
+        let view = UILabel()
+        view.font = .systemFont(ofSize: 16, weight: .medium)
+        view.textAlignment = .center
+        view.textColor = UIColor.label.withAlphaComponent(0.5)
+        return view
     }()
 
     override init(frame: CGRect) {

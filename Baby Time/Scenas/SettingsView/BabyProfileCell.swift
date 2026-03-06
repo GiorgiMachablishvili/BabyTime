@@ -14,45 +14,46 @@ final class BabyProfileCell: UICollectionViewCell {
     var onTapSave: ((_ name: String?, _ birthday: String?, _ gender: String) -> Void)?
     var onTapProfilePhoto: (() -> Void)?
 
-    private let container: UIView = {
-        let v = UIView()
-        v.backgroundColor = .systemBackground
-        v.layer.cornerRadius = 24
-        v.clipsToBounds = true
-        return v
+    private lazy var container: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemBackground
+        view.layer.cornerRadius = 24
+        view.clipsToBounds = true
+        return view
     }()
 
-    private let iconCircle: UIView = {
-        let v = UIView()
-        v.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.15)
-        v.clipsToBounds = true
-        return v
+    private lazy var iconCircle: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.15)
+        view.clipsToBounds = true
+        view.makeRoundCorners(30)
+        return view
     }()
 
-    private let iconImage: UIImageView = {
-        let iv = UIImageView()
-        iv.contentMode = .scaleAspectFit
-        iv.tintColor = UIColor.systemOrange.withAlphaComponent(0.7)
-        iv.clipsToBounds = true
-        iv.isUserInteractionEnabled = true
-        return iv
+    private lazy var iconImage: UIImageView = {
+        let view = UIImageView()
+        view.contentMode = .scaleAspectFit
+        view.tintColor = UIColor.systemOrange.withAlphaComponent(0.7)
+        view.clipsToBounds = true
+        view.isUserInteractionEnabled = true
+        return view
     }()
 
-    private let plusButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "plus"), for: .normal)
-        b.tintColor = .white
-        b.backgroundColor = UIColor.systemTeal
-        b.layer.cornerRadius = 15
-        b.clipsToBounds = true
-        return b
+    private lazy var plusButton: UIButton = {
+        let view = UIButton(type: .system)
+        view.setImage(UIImage(systemName: "plus"), for: .normal)
+        view.tintColor = .white
+        view.backgroundColor = UIColor.systemTeal
+        view.layer.cornerRadius = 15
+        view.clipsToBounds = true
+        return view
     }()
 
-    private let titleLabel: UILabel = {
-        let l = UILabel()
-        l.font = .systemFont(ofSize: 20, weight: .semibold)
-        l.textColor = UIColor.label.withAlphaComponent(0.85)
-        return l
+    private lazy var titleLabel: UILabel = {
+        let view = UILabel()
+        view.font = .systemFont(ofSize: 20, weight: .semibold)
+        view.textColor = UIColor.label.withAlphaComponent(0.85)
+        return view
     }()
 
     private let nameTitleLabel = BabyProfileCell.makeFieldTitle("Baby's Name")
@@ -62,11 +63,11 @@ final class BabyProfileCell: UICollectionViewCell {
     private let nameTextField = BabyProfileCell.makeTextField(placeholder: "Enter name")
     private let birthdayTextField = BabyProfileCell.makeTextField(placeholder: "dd.mm.yyyy")
 
-    private let calendarButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "calendar"), for: .normal)
-        b.tintColor = UIColor.label.withAlphaComponent(0.6)
-        return b
+    private lazy var calendarButton: UIButton = {
+        let view = UIButton(type: .system)
+        view.setImage(UIImage(systemName: "calendar"), for: .normal)
+        view.tintColor = UIColor.label.withAlphaComponent(0.6)
+        return view
     }()
 
     private let boyButton = GenderButton(title: "Boy")
@@ -74,40 +75,40 @@ final class BabyProfileCell: UICollectionViewCell {
     private let otherButton = GenderButton(title: "Other")
 
     private lazy var genderStack: UIStackView = {
-        let st = UIStackView(arrangedSubviews: [boyButton, girlButton, otherButton])
-        st.axis = .horizontal
-        st.spacing = 12
-        st.distribution = .fillEqually
-        return st
+        let view = UIStackView(arrangedSubviews: [boyButton, girlButton, otherButton])
+        view.axis = .horizontal
+        view.spacing = 12
+        view.distribution = .fillEqually
+        return view
     }()
 
-    private let saveButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setTitle("Save Profile", for: .normal)
-        b.setTitleColor(.white, for: .normal)
-        b.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.7)
-        b.titleLabel?.font = .systemFont(ofSize: 18, weight: .semibold)
-        b.layer.cornerRadius = 18
-        b.clipsToBounds = true
-        return b
+    private lazy var saveButton: UIButton = {
+        let view = UIButton(type: .system)
+        view.setTitle("Save Profile", for: .normal)
+        view.setTitleColor(.white, for: .normal)
+        view.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.7)
+        view.titleLabel?.font = .systemFont(ofSize: 18, weight: .semibold)
+        view.layer.cornerRadius = 18
+        view.clipsToBounds = true
+        return view
     }()
 
     private var selectedGender: Gender = .other {
         didSet { updateGenderUI() }
     }
 
-    private let datePicker: UIDatePicker = {
-        let dp = UIDatePicker()
-        dp.datePickerMode = .date
-        dp.preferredDatePickerStyle = .wheels
-        dp.maximumDate = Date()
-        return dp
+    private lazy var datePicker: UIDatePicker = {
+        let view = UIDatePicker()
+        view.datePickerMode = .date
+        view.preferredDatePickerStyle = .wheels
+        view.maximumDate = Date()
+        return view
     }()
 
-    private let birthdayFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "dd.MM.yyyy"
-        return df
+    private lazy var birthdayFormatter: DateFormatter = {
+        let view = DateFormatter()
+        view.dateFormat = "dd.MM.yyyy"
+        return view
     }()
 
     override init(frame: CGRect) {
@@ -122,14 +123,14 @@ final class BabyProfileCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        let r = min(iconCircle.bounds.width, iconCircle.bounds.height) / 2
-        iconCircle.layer.cornerRadius = r
-        iconImage.layer.cornerRadius = min(iconImage.bounds.width, iconImage.bounds.height) / 2
-        iconImage.clipsToBounds = true
-        plusButton.layer.cornerRadius = plusButton.bounds.height / 2
-    }
+//    override func layoutSubviews() {
+//        super.layoutSubviews()
+//        let r = min(iconCircle.bounds.width, iconCircle.bounds.height) / 2
+//        iconCircle.layer.cornerRadius = r
+//        iconImage.layer.cornerRadius = r
+//        iconImage.clipsToBounds = true
+//        plusButton.layer.cornerRadius = plusButton.bounds.height / 2
+//    }
 
     override func prepareForReuse() {
         super.prepareForReuse()
@@ -137,7 +138,7 @@ final class BabyProfileCell: UICollectionViewCell {
         birthdayTextField.text = nil
     }
 
-    func configure(title: String, icon: UIImage?, profileImage: UIImage? = nil) {
+    func configure(title: String, icon: UIImage?, profileImage: UIImage? = nil, nameText: String? = nil, birthdayText: String? = nil, genderText: String? = nil) {
         titleLabel.text = title
         if let profileImage = profileImage {
             iconImage.image = profileImage
@@ -147,6 +148,12 @@ final class BabyProfileCell: UICollectionViewCell {
             iconImage.image = icon
             iconImage.contentMode = .scaleAspectFit
             iconImage.tintColor = UIColor.systemOrange.withAlphaComponent(0.7)
+        }
+
+        nameTextField.text = nameText
+        birthdayTextField.text = birthdayText
+        if let g = genderText, let gender = Gender(rawValue: g) {
+            selectedGender = gender
         }
     }
 
@@ -190,9 +197,10 @@ final class BabyProfileCell: UICollectionViewCell {
         }
 
         iconCircle.snp.makeConstraints {
-            $0.top.leading.equalToSuperview().offset(18)
-            $0.width.equalTo(100)
-            $0.height.equalTo(iconCircle.snp.width)
+            $0.top.equalToSuperview().offset(18 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(18 * Constraint.yCoeff)
+            $0.width.equalTo(60 * Constraint.yCoeff)
+            $0.height.equalTo(60 * Constraint.xCoeff)
         }
 
         iconImage.snp.makeConstraints {
@@ -200,61 +208,63 @@ final class BabyProfileCell: UICollectionViewCell {
         }
 
         plusButton.snp.makeConstraints {
-            $0.trailing.equalTo(iconCircle.snp.trailing).offset(4)
-            $0.bottom.equalTo(iconCircle.snp.bottom).offset(4)
-            $0.size.equalTo(30)
+            $0.trailing.equalTo(iconCircle.snp.trailing).offset(4 * Constraint.yCoeff)
+            $0.bottom.equalTo(iconCircle.snp.bottom).offset(4 * Constraint.xCoeff)
+            $0.width.equalTo(30 * Constraint.yCoeff)
+            $0.height.equalTo(30 * Constraint.xCoeff)
         }
 
         titleLabel.snp.makeConstraints {
             $0.centerY.equalTo(iconCircle)
-            $0.leading.equalTo(iconCircle.snp.trailing).offset(12)
-            $0.trailing.equalToSuperview().offset(-16)
+            $0.leading.equalTo(iconCircle.snp.trailing).offset(12 * Constraint.yCoeff)
+            $0.trailing.equalToSuperview().offset(-16 * Constraint.yCoeff)
         }
 
         nameTitleLabel.snp.makeConstraints {
-            $0.top.equalTo(iconCircle.snp.bottom).offset(8)
-            $0.leading.trailing.equalToSuperview().inset(18)
+            $0.top.equalTo(iconCircle.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(18 * Constraint.yCoeff)
         }
 
         nameTextField.snp.makeConstraints {
-            $0.top.equalTo(nameTitleLabel.snp.bottom).offset(8)
-            $0.leading.trailing.equalToSuperview().inset(18)
-            $0.height.equalTo(48)
+            $0.top.equalTo(iconCircle.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(18 * Constraint.yCoeff)
+            $0.height.equalTo(48 * Constraint.xCoeff)
         }
 
         birthdayTitleLabel.snp.makeConstraints {
-            $0.top.equalTo(nameTextField.snp.bottom).offset(16)
-            $0.leading.trailing.equalToSuperview().inset(18)
+            $0.top.equalTo(nameTextField.snp.bottom).offset(16 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(18 * Constraint.yCoeff)
         }
 
         birthdayTextField.snp.makeConstraints {
-            $0.top.equalTo(birthdayTitleLabel.snp.bottom).offset(8)
-            $0.leading.trailing.equalToSuperview().inset(18)
-            $0.height.equalTo(48)
+            $0.top.equalTo(birthdayTitleLabel.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(18 * Constraint.yCoeff)
+            $0.height.equalTo(48 * Constraint.xCoeff)
         }
 
         calendarButton.snp.makeConstraints {
             $0.centerY.equalToSuperview()
-            $0.trailing.equalToSuperview().offset(-14)
-            $0.size.equalTo(22)
+            $0.trailing.equalToSuperview().offset(-14 * Constraint.yCoeff)
+            $0.width.equalTo(22 * Constraint.yCoeff)
+            $0.height.equalTo(22 * Constraint.xCoeff)
         }
 
         genderTitleLabel.snp.makeConstraints {
-            $0.top.equalTo(birthdayTextField.snp.bottom).offset(16)
-            $0.leading.trailing.equalToSuperview().inset(18)
+            $0.top.equalTo(birthdayTextField.snp.bottom).offset(16 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(18 * Constraint.yCoeff)
         }
 
         genderStack.snp.makeConstraints {
-            $0.top.equalTo(genderTitleLabel.snp.bottom).offset(10)
-            $0.leading.trailing.equalToSuperview().inset(18)
-            $0.height.equalTo(44)
+            $0.top.equalTo(genderTitleLabel.snp.bottom).offset(10 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(18 * Constraint.yCoeff)
+            $0.height.equalTo(44 * Constraint.xCoeff)
         }
 
         saveButton.snp.makeConstraints {
-            $0.top.equalTo(genderStack.snp.bottom).offset(16)
-            $0.leading.trailing.equalToSuperview().inset(18)
-            $0.height.equalTo(54)
-            $0.bottom.equalToSuperview().offset(-18)
+            $0.top.equalTo(genderStack.snp.bottom).offset(16 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(18 * Constraint.yCoeff)
+            $0.height.equalTo(54 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().offset(-18 * Constraint.xCoeff)
         }
     }
 
@@ -312,21 +322,22 @@ final class BabyProfileCell: UICollectionViewCell {
 
     // Helpers
     private static func makeFieldTitle(_ text: String) -> UILabel {
-        let l = UILabel()
-        l.text = text
-        l.font = .systemFont(ofSize: 13, weight: .semibold)
-        l.textColor = UIColor.secondaryLabel
-        return l
+        let view = UILabel()
+        view.text = text
+        view.font = .systemFont(ofSize: 13, weight: .semibold)
+        view.textColor = UIColor.secondaryLabel
+        return view
     }
 
     private static func makeTextField(placeholder: String) -> UITextField {
-        let tf = UITextField()
-        tf.placeholder = placeholder
-        tf.backgroundColor = UIColor.systemGray6
-        tf.layer.cornerRadius = 12
-        tf.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
-        tf.leftViewMode = .always
-        tf.textColor = .label
-        return tf
+        let view = UITextField()
+        view.placeholder = placeholder
+        view.backgroundColor = UIColor.systemGray6
+        view.layer.cornerRadius = 12
+        view.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
+        view.leftViewMode = .always
+        view.textColor = .label
+        return view
     }
 }
+

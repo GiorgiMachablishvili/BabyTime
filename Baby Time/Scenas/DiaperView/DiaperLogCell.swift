@@ -101,19 +101,20 @@ final class DiaperLogCell: UICollectionViewCell {
         card.snp.makeConstraints { $0.edges.equalToSuperview() }
 
         iconContainer.snp.makeConstraints {
-            $0.leading.equalToSuperview().inset(16)
+            $0.leading.equalToSuperview().inset(16 * Constraint.yCoeff)
             $0.centerY.equalToSuperview()
-            $0.width.height.equalTo(56)
+            $0.width.equalTo(56 * Constraint.yCoeff)
+            $0.height.equalTo(56 * Constraint.xCoeff)
         }
 
         rightStack.snp.makeConstraints {
-            $0.trailing.equalToSuperview().inset(16)
+            $0.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
             $0.centerY.equalToSuperview()
         }
 
         textStack.snp.makeConstraints {
-            $0.leading.equalTo(iconContainer.snp.trailing).offset(14)
-            $0.trailing.lessThanOrEqualTo(rightStack.snp.leading).offset(-12)
+            $0.leading.equalTo(iconContainer.snp.trailing).offset(14 * Constraint.yCoeff)
+            $0.trailing.lessThanOrEqualTo(rightStack.snp.leading).offset(-12 * Constraint.yCoeff)
             $0.centerY.equalToSuperview()
         }
 

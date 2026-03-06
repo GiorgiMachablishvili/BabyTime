@@ -4,6 +4,9 @@ import SnapKit
 final class SettingsViewController: UIViewController {
 
     private var profileImage: UIImage?
+    private var profileName: String?
+    private var profileBirthday: Date?
+    private var profileGender: String?
 
     private lazy var sectionHeaderView: SectionHeaderView = {
         let view = SectionHeaderView()
@@ -47,25 +50,48 @@ final class SettingsViewController: UIViewController {
         layout.minimumLineSpacing = 16
         layout.sectionInset = UIEdgeInsets(top: 16, left: 16, bottom: 28, right: 16)
 
-        let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        cv.backgroundColor = .clear
-        cv.dataSource = self
-        cv.delegate = self
+        let view = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        view.backgroundColor = .clear
+        view.dataSource = self
+        view.delegate = self
 
-        cv.register(BabyProfileCell.self, forCellWithReuseIdentifier: BabyProfileCell.reuseId)
-        cv.register(SettingsRowCell.self, forCellWithReuseIdentifier: SettingsRowCell.reuseId)
+        view.register(BabyProfileCell.self, forCellWithReuseIdentifier: BabyProfileCell.reuseId)
+        view.register(SettingsRowCell.self, forCellWithReuseIdentifier: SettingsRowCell.reuseId)
 
-        return cv
+        return view
     }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
         view.backgroundColor = .viewsBackGourdColor
+        loadProfileFromStore()
 
         setupUI()
         setupConstraints()
         configureViews()
+    }
+
+    private func loadProfileFromStore() {
+        profileImage = BabyProfileStore.loadPhoto()
+        profileName = BabyProfileStore.loadName()
+        profileBirthday = BabyProfileStore.loadBirthday()
+        profileGender = BabyProfileStore.loadGender()
+    }
+
+    private func birthdayText(from date: Date?) -> String? {
+        guard let date else { return nil }
+        let df = DateFormatter()
+        df.dateFormat = "dd.MM.yyyy"
+        return df.string(from: date)
+    }
+
+    private func parseBirthday(_ text: String?) -> Date? {
+        let t = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return nil }
+        let df = DateFormatter()
+        df.dateFormat = "dd.MM.yyyy"
+        return df.date(from: t)
     }
 
     private func setupUI() {
@@ -148,12 +174,23 @@ extension SettingsViewController: UICollectionViewDataSource {
             cell.configure(
                 title: "Baby Profile",
                 icon: UIImage(systemName: item.iconName),
-                profileImage: profileImage
+                profileImage: profileImage,
+                nameText: profileName,
+                birthdayText: birthdayText(from: profileBirthday),
+                genderText: profileGender
             )
 
             cell.onTapSave = { [weak self] name, birthday, gender in
-                print("Save Profile:", name ?? "-", birthday ?? "-", gender)
-                self?.view.endEditing(true)
+                guard let self else { return }
+                self.profileName = name
+                self.profileBirthday = self.parseBirthday(birthday)
+                self.profileGender = gender
+
+                BabyProfileStore.saveName(self.profileName)
+                BabyProfileStore.saveBirthday(self.profileBirthday)
+                BabyProfileStore.saveGender(self.profileGender)
+
+                self.view.endEditing(true)
             }
 
             cell.onTapProfilePhoto = { [weak self] in
@@ -189,7 +226,7 @@ extension SettingsViewController: UICollectionViewDelegateFlowLayout {
 
         switch item {
         case .babyProfile:
-            return CGSize(width: width, height: 360)
+            return CGSize(width: width, height: 400)
         case .notifications, .exportData, .darkMode:
             return CGSize(width: width, height: 78)
         }
@@ -201,6 +238,7 @@ extension SettingsViewController: UIImagePickerControllerDelegate, UINavigationC
         picker.dismiss(animated: true)
         guard let image = info[.originalImage] as? UIImage else { return }
         profileImage = image
+        BabyProfileStore.savePhoto(image)
         collectionView.reloadItems(at: [IndexPath(item: Item.babyProfile.rawValue, section: 0)])
     }
 

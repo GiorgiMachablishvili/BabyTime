@@ -153,6 +153,69 @@ class MainViewController: UIViewController {
 
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        applyBabyProfile()
+    }
+
+    private func applyBabyProfile() {
+        let name = BabyProfileStore.loadName()
+        let birthday = BabyProfileStore.loadBirthday()
+        let photo = BabyProfileStore.loadPhoto()
+
+        if let name, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            yourBabyLabel.text = name
+        } else {
+            yourBabyLabel.text = "Your Baby"
+        }
+
+        if let birthday {
+            babyInfoLabel.text = ageText(from: birthday)
+        } else {
+            babyInfoLabel.text = "Set up baby profile in Setting"
+        }
+
+        if let photo {
+            babyButton.setBackgroundImage(photo, for: .normal)
+            babyButton.setImage(nil, for: .normal)
+            babyButton.backgroundColor = .clear
+            babyButton.imageView?.contentMode = .scaleAspectFill
+            babyButton.contentHorizontalAlignment = .fill
+            babyButton.contentVerticalAlignment = .fill
+            babyButton.clipsToBounds = true
+        } else {
+            babyButton.setBackgroundImage(nil, for: .normal)
+            babyButton.setImage(UIImage(systemName: "person"), for: .normal)
+            babyButton.tintColor = .white
+            babyButton.backgroundColor = .feedingViewColor.withAlphaComponent(0.8)
+            babyButton.contentHorizontalAlignment = .center
+            babyButton.contentVerticalAlignment = .center
+        }
+    }
+
+    private func ageText(from birthday: Date, now: Date = Date()) -> String {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: birthday)
+        let end = cal.startOfDay(for: now)
+        guard end >= start else { return "" }
+
+        let comps = cal.dateComponents([.year, .month, .day], from: start, to: end)
+        let years = max(0, comps.year ?? 0)
+        let months = max(0, comps.month ?? 0)
+        let days = max(0, comps.day ?? 0)
+
+        if years == 0 && months == 0 {
+            return "\(days) days"
+        }
+
+        if years == 0 {
+            return "\(months) months \(days) days"
+        }
+
+        let weeks = days / 7
+        return "\(years) years \(months) months \(weeks) weeks"
+    }
+
     private func setupUI() {
         view.addSubview(babyButton)
         view.addSubview(yourBabyLabel)
@@ -173,16 +236,17 @@ class MainViewController: UIViewController {
         babyButton.snp.remakeConstraints { (make) in
             make.top.equalTo(view.snp.top).offset(60 * Constraint.xCoeff)
             make.leading.equalTo(view.snp.leading).offset(20 * Constraint.yCoeff)
-            make.width.height.equalTo(66 * Constraint.xCoeff)
+            make.width.equalTo(66 * Constraint.yCoeff)
+            make.height.equalTo(66 * Constraint.xCoeff)
         }
 
         yourBabyLabel.snp.remakeConstraints { (make) in
-            make.bottom.equalTo(babyButton.snp.centerY).offset(-2 * Constraint.yCoeff)
+            make.bottom.equalTo(babyButton.snp.centerY).offset(-2 * Constraint.xCoeff)
             make.leading.equalTo(babyButton.snp.trailing).offset(20 * Constraint.yCoeff)
         }
 
         babyInfoLabel.snp.remakeConstraints { (make) in
-            make.top.equalTo(babyButton.snp.centerY).offset(2 * Constraint.yCoeff)
+            make.top.equalTo(babyButton.snp.centerY).offset(2 * Constraint.xCoeff)
             make.leading.equalTo(babyButton.snp.trailing).offset(20 * Constraint.yCoeff)
         }
 

@@ -62,25 +62,27 @@ final class StatsCardView: UIView {
     private func setupConstraints() {
         iconContainerView.snp.makeConstraints {
             $0.centerY.equalToSuperview()
-            $0.leading.equalToSuperview().offset(8)
-            $0.width.height.equalTo(40)
+            $0.leading.equalToSuperview().offset(8 * Constraint.yCoeff)
+            $0.width.equalTo(40 * Constraint.yCoeff)
+            $0.height.equalTo(40 * Constraint.xCoeff)
         }
 
         iconImageView.snp.makeConstraints {
             $0.center.equalToSuperview()
-            $0.width.height.equalTo(20)
+            $0.width.equalTo(20 * Constraint.yCoeff)
+            $0.height.equalTo(20 * Constraint.xCoeff)
         }
 
         titleLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(16)
-            $0.leading.equalTo(iconContainerView.snp.trailing).offset(4)
-            $0.trailing.lessThanOrEqualToSuperview().offset(-16)
+            $0.top.equalToSuperview().offset(16 * Constraint.xCoeff)
+            $0.leading.equalTo(iconContainerView.snp.trailing).offset(4 * Constraint.yCoeff)
+            $0.trailing.lessThanOrEqualToSuperview().offset(-16 * Constraint.yCoeff)
         }
 
         countLabel.snp.makeConstraints {
-            $0.top.equalTo(titleLabel.snp.bottom).offset(4)
+            $0.top.equalTo(titleLabel.snp.bottom).offset(4 * Constraint.xCoeff)
             $0.leading.equalTo(titleLabel)
-            $0.bottom.lessThanOrEqualToSuperview().offset(-16)
+            $0.bottom.lessThanOrEqualToSuperview().offset(-16 * Constraint.xCoeff)
         }
     }
 

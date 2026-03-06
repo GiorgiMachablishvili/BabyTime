@@ -183,33 +183,35 @@ class FeedingViewCell: UICollectionViewCell {
         }
 
         iconContainer.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
+            make.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(44)
+            make.width.equalTo(44 * Constraint.yCoeff)
+            make.height.equalTo(44 * Constraint.xCoeff)
         }
 
         iconView.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.width.height.equalTo(24)
+            make.width.equalTo(24 * Constraint.yCoeff)
+            make.height.equalTo(24 * Constraint.xCoeff)
         }
 
         // Right-side time/date stack
         timeLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(14)
-            make.trailing.equalToSuperview().inset(16)
+            make.top.equalToSuperview().offset(14 * Constraint.xCoeff)
+            make.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
         }
 
         dateLabel.snp.makeConstraints { make in
-            make.top.equalTo(timeLabel.snp.bottom).offset(2)
+            make.top.equalTo(timeLabel.snp.bottom).offset(2 * Constraint.xCoeff)
             make.trailing.equalTo(timeLabel)
-            make.bottom.lessThanOrEqualToSuperview().inset(12)
+            make.bottom.lessThanOrEqualToSuperview().inset(12 * Constraint.xCoeff)
         }
 
         // Title and subtitle in the middle, constrained between icon and time
         titleLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(12)
-            make.leading.equalTo(iconContainer.snp.trailing).offset(12)
-            make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12)
+            make.top.equalToSuperview().offset(12 * Constraint.xCoeff)
+            make.leading.equalTo(iconContainer.snp.trailing).offset(12 * Constraint.yCoeff)
+            make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
         }
 
 //        subtitleLabel.snp.makeConstraints { make in
@@ -220,14 +222,14 @@ class FeedingViewCell: UICollectionViewCell {
 //        }
 
         amountFeedLabel.snp.remakeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(4)
+            make.top.equalTo(titleLabel.snp.bottom).offset(4 * Constraint.xCoeff)
             make.leading.equalTo(titleLabel)
-            make.bottom.lessThanOrEqualToSuperview().inset(12)
+            make.bottom.lessThanOrEqualToSuperview().inset(12 * Constraint.xCoeff)
         }
 
         noteInfoLabel.snp.remakeConstraints { make in
             make.top.equalTo(amountFeedLabel.snp.top)
-            make.leading.equalTo(amountFeedLabel.snp.trailing).offset(4)
+            make.leading.equalTo(amountFeedLabel.snp.trailing).offset(4 * Constraint.yCoeff)
             make.bottom.equalTo(amountFeedLabel)
         }
     }

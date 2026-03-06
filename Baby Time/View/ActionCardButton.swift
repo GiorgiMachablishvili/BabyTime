@@ -12,18 +12,18 @@ final class ActionCardButton: UIView {
     // MARK: - UI
 
     lazy var iconImageView: UIImageView = {
-        let iv = UIImageView(frame: .zero)
-        iv.contentMode = .scaleAspectFit
-        iv.tintColor = .buttonTitleColor
-        return iv
+        let view = UIImageView(frame: .zero)
+        view.contentMode = .scaleAspectFit
+        view.tintColor = .buttonTitleColor
+        return view
     }()
 
     lazy var titleLabel: UILabel = {
-        let label = UILabel(frame: .zero)
-        label.font = .systemFont(ofSize: 14, weight: .medium)
-        label.textColor = .buttonTitleColor
-        label.textAlignment = .center
-        return label
+        let view = UILabel(frame: .zero)
+        view.font = .systemFont(ofSize: 14, weight: .medium)
+        view.textColor = .buttonTitleColor
+        view.textAlignment = .center
+        return view
     }()
 
     // MARK: - Init
@@ -52,12 +52,13 @@ final class ActionCardButton: UIView {
     private func setupConstraint() {
         iconImageView.snp.makeConstraints {
             $0.centerX.equalToSuperview()
-            $0.centerY.equalToSuperview().offset(-10)
-            $0.width.height.equalTo(28)
+            $0.centerY.equalToSuperview().offset(-10 * Constraint.xCoeff)
+            $0.width.equalTo(28 * Constraint.yCoeff)
+            $0.height.equalTo(28 * Constraint.xCoeff)
         }
 
         titleLabel.snp.makeConstraints {
-            $0.top.equalTo(iconImageView.snp.bottom).offset(8)
+            $0.top.equalTo(iconImageView.snp.bottom).offset(8 * Constraint.xCoeff)
             $0.centerX.equalToSuperview()
         }
     }

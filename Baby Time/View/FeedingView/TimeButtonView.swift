@@ -93,35 +93,35 @@ class TimeButtonView: UIView {
         fiveMinutesButton.snp.remakeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(10 * Constraint.xCoeff)
             make.leading.equalTo(snp.leading).offset(10 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.yCoeff)
+            make.height.equalTo(40 * Constraint.xCoeff)
             make.width.equalTo(60 * Constraint.yCoeff)
         }
 
         tenMinutesButton.snp.remakeConstraints { make in
             make.top.equalTo(fiveMinutesButton.snp.top)
             make.leading.equalTo(fiveMinutesButton.snp.trailing).offset(5 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.yCoeff)
+            make.height.equalTo(40 * Constraint.xCoeff)
             make.width.equalTo(60 * Constraint.yCoeff)
         }
 
         fifteenMinutesButton.snp.remakeConstraints { make in
             make.top.equalTo(fiveMinutesButton.snp.top)
             make.leading.equalTo(tenMinutesButton.snp.trailing).offset(5 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.yCoeff)
+            make.height.equalTo(40 * Constraint.xCoeff)
             make.width.equalTo(60 * Constraint.yCoeff)
         }
 
         twentyMinutesButton.snp.remakeConstraints { make in
             make.top.equalTo(fiveMinutesButton.snp.top)
             make.leading.equalTo(fifteenMinutesButton.snp.trailing).offset(5 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.yCoeff)
+            make.height.equalTo(40 * Constraint.xCoeff)
             make.width.equalTo(60 * Constraint.yCoeff)
         }
 
         thirtyMinutesButton.snp.remakeConstraints { make in
             make.top.equalTo(fiveMinutesButton.snp.top)
             make.leading.equalTo(twentyMinutesButton.snp.trailing).offset(5 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.yCoeff)
+            make.height.equalTo(40 * Constraint.xCoeff)
             make.width.equalTo(60 * Constraint.yCoeff)
         }
     }

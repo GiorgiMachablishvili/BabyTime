@@ -5,21 +5,21 @@ import SnapKit
 
 final class EmptyStateView: UIView {
 
-    private let iconCircleView: UIView = {
+    private lazy var iconCircleView: UIView = {
         let view = UIView()
         view.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.15)
         view.clipsToBounds = true
         return view
     }()
 
-    private let iconImageView: UIImageView = {
+    private lazy var iconImageView: UIImageView = {
         let view = UIImageView()
         view.contentMode = .scaleAspectFit
         view.tintColor = UIColor.systemOrange.withAlphaComponent(0.65)
         return view
     }()
 
-    private let titleLabel: UILabel = {
+    private lazy var titleLabel: UILabel = {
         let view = UILabel()
         view.textAlignment = .center
         view.font = .systemFont(ofSize: 26, weight: .semibold)
@@ -28,7 +28,7 @@ final class EmptyStateView: UIView {
         return view
     }()
 
-    private let subtitleLabel: UILabel = {
+    private lazy var subtitleLabel: UILabel = {
         let view = UILabel()
         view.textAlignment = .center
         view.font = .systemFont(ofSize: 18, weight: .regular)
@@ -63,22 +63,24 @@ final class EmptyStateView: UIView {
     private func setupConstraints() {
         iconCircleView.snp.makeConstraints {
             $0.top.centerX.equalToSuperview()
-            $0.width.height.equalTo(90)
+            $0.width.equalTo(90 * Constraint.yCoeff)
+            $0.height.equalTo(90 * Constraint.xCoeff)
         }
 
         iconImageView.snp.makeConstraints {
             $0.center.equalToSuperview()
-            $0.width.height.equalTo(40)
+            $0.width.equalTo(40 * Constraint.yCoeff)
+            $0.height.equalTo(40 * Constraint.xCoeff)
         }
 
         titleLabel.snp.makeConstraints {
-            $0.top.equalTo(iconCircleView.snp.bottom).offset(18)
-            $0.leading.trailing.equalToSuperview().inset(24)
+            $0.top.equalTo(iconCircleView.snp.bottom).offset(18 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(24 * Constraint.yCoeff)
         }
 
         subtitleLabel.snp.makeConstraints {
-            $0.top.equalTo(titleLabel.snp.bottom).offset(12)
-            $0.leading.trailing.equalToSuperview().inset(24)
+            $0.top.equalTo(titleLabel.snp.bottom).offset(12 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(24 * Constraint.yCoeff)
             $0.bottom.equalToSuperview()
         }
     }
