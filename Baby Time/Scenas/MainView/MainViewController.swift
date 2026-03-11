@@ -48,7 +48,10 @@ class MainViewController: UIViewController {
             case .feeding: return .feedingViewColor
             case .sleep: return .sleepViewColor
             case .diaper: return .diaperViewColor
-            case .growth, .vaccination, .doctorVisit, .historyOfIllness: return .growthViewColor
+            case .growth: return .growthViewColor
+            case .vaccination: return .systemTeal
+            case .doctorVisit: return .growthViewColor
+            case .historyOfIllness: return .growthViewColor
             }
         }
     }
@@ -378,3 +381,4 @@ extension MainViewController: UICollectionViewDataSource, UICollectionViewDelega
         return CGSize(width: collectionView.bounds.width, height: 44)
     }
 }
+
