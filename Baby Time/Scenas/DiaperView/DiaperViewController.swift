@@ -32,8 +32,8 @@ final class DiaperViewController: UIViewController {
 
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
-    private lazy var daiperView: DaiperView = {
-        let view = DaiperView()
+    private lazy var daiperView: DiaperView = {
+        let view = DiaperView()
         view.isHidden = true
 
         view.onTapCloseButton = { [weak self] in

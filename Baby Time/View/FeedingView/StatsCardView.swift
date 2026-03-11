@@ -35,6 +35,8 @@ final class StatsCardView: UIView {
         return view
     }()
 
+    private var iconContainerLeadingConstraint: SnapKit.Constraint?
+
     // MARK: - Init
 
     override init(frame: CGRect) {
@@ -62,7 +64,7 @@ final class StatsCardView: UIView {
     private func setupConstraints() {
         iconContainerView.snp.makeConstraints {
             $0.centerY.equalToSuperview()
-            $0.leading.equalToSuperview().offset(8 * Constraint.yCoeff)
+            iconContainerLeadingConstraint = $0.leading.equalToSuperview().offset(8 * Constraint.yCoeff).constraint
             $0.width.equalTo(40 * Constraint.yCoeff)
             $0.height.equalTo(40 * Constraint.xCoeff)
         }
@@ -92,11 +94,15 @@ final class StatsCardView: UIView {
         backgroundColor: UIColor,
         icon: UIImage?,
         title: String,
-        count: Int
+        count: Int,
+        contentLeadingInset: CGFloat? = nil
     ) {
         self.backgroundColor = backgroundColor
         iconImageView.image = icon
         titleLabel.text = title
         countLabel.text = "\(count)"
+        if let inset = contentLeadingInset {
+            iconContainerLeadingConstraint?.update(offset: inset * Constraint.yCoeff)
+        }
     }
 }

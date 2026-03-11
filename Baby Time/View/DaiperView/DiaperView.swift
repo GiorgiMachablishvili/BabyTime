@@ -3,7 +3,7 @@
 import UIKit
 import SnapKit
 
-class DaiperView: UIView {
+class DiaperView: UIView {
 
     var onTapCloseButton: (() -> Void)?
     var onTapSave: ((DiaperType) -> Void)?

@@ -51,15 +51,17 @@ final class ActionCardButton: UIView {
 
     private func setupConstraint() {
         iconImageView.snp.makeConstraints {
-            $0.centerX.equalToSuperview()
+//            $0.centerX.equalToSuperview()
             $0.centerY.equalToSuperview().offset(-10 * Constraint.xCoeff)
+            $0.leading.equalTo(snp.leading).offset(20 * Constraint.yCoeff)
             $0.width.equalTo(28 * Constraint.yCoeff)
             $0.height.equalTo(28 * Constraint.xCoeff)
         }
 
         titleLabel.snp.makeConstraints {
             $0.top.equalTo(iconImageView.snp.bottom).offset(8 * Constraint.xCoeff)
-            $0.centerX.equalToSuperview()
+            $0.leading.equalTo(snp.leading).offset(20 * Constraint.yCoeff)
+//            $0.centerX.equalToSuperview()
         }
     }
 

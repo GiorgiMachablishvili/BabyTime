@@ -5,11 +5,60 @@ class MainViewController: UIViewController {
 
     var minute = 0
 
+    private enum Section: Int, CaseIterable {
+        case stats = 0
+        case quickAdd = 1
+    }
+
+    private enum QuickAddItem: Int, CaseIterable {
+        case feeding
+        case sleep
+        case diaper
+        case growth
+        case vaccination
+        case doctorVisit
+        case historyOfIllness
+
+        var title: String {
+            switch self {
+            case .feeding: return "Feeding"
+            case .sleep: return "Sleep"
+            case .diaper: return "Diapers"
+            case .growth: return "Growth"
+            case .vaccination: return "Vaccination"
+            case .doctorVisit: return "Doctor Visit"
+            case .historyOfIllness: return "History of illness"
+            }
+        }
+
+        var iconName: String {
+            switch self {
+            case .feeding: return "fork.knife"
+            case .sleep: return "moon"
+            case .diaper: return "figure.child.circle"
+            case .growth: return "ruler"
+            case .vaccination: return "syringe"
+            case .doctorVisit: return "stethoscope"
+            case .historyOfIllness: return "heart.text.square"
+            }
+        }
+
+        var backgroundColor: UIColor {
+            switch self {
+            case .feeding: return .feedingViewColor
+            case .sleep: return .sleepViewColor
+            case .diaper: return .diaperViewColor
+            case .growth, .vaccination, .doctorVisit, .historyOfIllness: return .growthViewColor
+            }
+        }
+    }
+
+    // MARK: - Header
+
     private lazy var babyButton: UIButton = {
         let view = UIButton(type: .system)
         view.backgroundColor = .feedingViewColor.withAlphaComponent(0.8)
-        let image = UIImage(systemName: "person")
-        view.setImage(image, for: .normal)
+        view.setImage(UIImage(systemName: "person"), for: .normal)
         view.tintColor = .white
         view.makeRoundCorners(33)
         view.clipsToBounds = true
@@ -35,85 +84,35 @@ class MainViewController: UIViewController {
         return view
     }()
 
-    private lazy var feedingCountView: StatsCardView = {
-        let view = StatsCardView()
-        view.backgroundColor = .feedingViewColor
-        view.iconImageView.image = UIImage(systemName: "fork.knife")
-        view.titleLabel.text = "Feeding"
-        view.countLabel.text = "0"
+    private lazy var headerContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = .clear
         return view
     }()
 
-    private lazy var sleepCountView: StatsCardView = {
-        let view = StatsCardView()
-        view.backgroundColor = .sleepViewColor
-        view.iconImageView.image = UIImage(systemName: "moon")
-        view.titleLabel.text = "Sleep"
-        view.countLabel.text = "\(minute)m"
-        return view
+    // MARK: - Collection view
+
+    private lazy var collectionView: UICollectionView = {
+        let layout = UICollectionViewFlowLayout()
+        layout.scrollDirection = .vertical
+        layout.minimumLineSpacing = 10
+        layout.minimumInteritemSpacing = 0
+        layout.sectionInset = UIEdgeInsets(top: 0, left: 10, bottom: 20, right: 10)
+        let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        cv.backgroundColor = .clear
+        cv.delegate = self
+        cv.dataSource = self
+        cv.register(MainStatsRowCell.self, forCellWithReuseIdentifier: MainStatsRowCell.reuseId)
+        cv.register(MainActionCardCell.self, forCellWithReuseIdentifier: MainActionCardCell.reuseId)
+        cv.register(
+            UICollectionReusableView.self,
+            forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+            withReuseIdentifier: "SectionHeader"
+        )
+        return cv
     }()
 
-    private lazy var diaperCountView: StatsCardView = {
-        let view = StatsCardView()
-        view.backgroundColor = .diaperViewColor
-        view.iconImageView.image = UIImage(systemName: "figure.child.circle")
-        view.titleLabel.text = "Diapers"
-        view.countLabel.text = "0"
-        return view
-    }()
-
-    private lazy var quickAddLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.text = "Quick Add"
-        view.textAlignment = .left
-        view.font = UIFont.preferredFont(forTextStyle: .title2)
-        view.textColor = .black
-        return view
-    }()
-
-    private lazy var feedingActionCardButton: ActionCardButton = {
-        let view = ActionCardButton()
-        view.backgroundColor = .feedingViewColor
-        view.titleLabel.text = "Feeding"
-        view.iconImageView.image = UIImage(systemName: "fork.knife")
-        let tap = UITapGestureRecognizer(target: self, action: #selector(feedingActionCardButtonPressed))
-        view.isUserInteractionEnabled = true
-        view.addGestureRecognizer(tap)
-        return view
-    }()
-
-    private lazy var sleepActionCardButton: ActionCardButton = {
-        let view = ActionCardButton()
-        view.backgroundColor = .sleepViewColor
-        view.titleLabel.text = "Sleep"
-        view.iconImageView.image = UIImage(systemName: "moon")
-        let tap = UITapGestureRecognizer(target: self, action: #selector(sleepActionCardButtonPressed))
-        view.isUserInteractionEnabled = true
-        view.addGestureRecognizer(tap)
-        return view
-    }()
-
-    private lazy var diaperActionCardButton: ActionCardButton = {
-        let view = ActionCardButton()
-        view.backgroundColor = .diaperViewColor
-        view.titleLabel.text = "Diapers"
-        view.iconImageView.image = UIImage(systemName: "figure.child.circle")
-        let tap = UITapGestureRecognizer(target: self, action: #selector(diaperActionCardButtonPressed))
-        view.isUserInteractionEnabled = true
-        view.addGestureRecognizer(tap)
-        return view
-    }()
-
-    private lazy var growthActionCardButton: ActionCardButton = {
-        let view = ActionCardButton()
-        view.backgroundColor = .growthViewColor
-        view.titleLabel.text = "Growth"
-        view.iconImageView.image = UIImage(systemName: "ruler")
-        let tap = UITapGestureRecognizer(target: self, action: #selector(growthActionCardButtonPressed))
-        view.isUserInteractionEnabled = true
-        view.addGestureRecognizer(tap)
-        return view
-    }()
+    // MARK: - Overlays (feeding / diaper modals)
 
     private lazy var feedingView: FeedingView = {
         let view = FeedingView()
@@ -129,15 +128,15 @@ class MainViewController: UIViewController {
         return view
     }()
 
-    private lazy var daiperView: DaiperView = {
-        let view = DaiperView()
+    private lazy var diaper: DiaperView = {
+        let view = DiaperView()
         view.isHidden = true
         view.onTapCloseButton = { [weak self] in
             guard let self = self else { return }
             UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut]) {
-                self.daiperView.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
+                self.diaper.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
             } completion: { _ in
-                self.daiperView.isHidden = true
+                self.diaper.isHidden = true
             }
         }
         return view
@@ -145,17 +144,16 @@ class MainViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
         view.backgroundColor = .viewsBackGourdColor
-
         setupUI()
         setupConstraints()
-
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
         applyBabyProfile()
+        collectionView.reloadData()
     }
 
     private func applyBabyProfile() {
@@ -207,112 +205,65 @@ class MainViewController: UIViewController {
         if years == 0 && months == 0 {
             return "\(days) days"
         }
-
         if years == 0 {
             return "\(months) months \(days) days"
         }
-
         let weeks = days / 7
         return "\(years) years \(months) months \(weeks) weeks"
     }
 
     private func setupUI() {
-        view.addSubview(babyButton)
-        view.addSubview(yourBabyLabel)
-        view.addSubview(babyInfoLabel)
-        view.addSubview(feedingCountView)
-        view.addSubview(sleepCountView)
-        view.addSubview(diaperCountView)
-        view.addSubview(quickAddLabel)
-        view.addSubview(feedingActionCardButton)
-        view.addSubview(sleepActionCardButton)
-        view.addSubview(diaperActionCardButton)
-        view.addSubview(growthActionCardButton)
+        view.addSubview(headerContainer)
+        headerContainer.addSubview(babyButton)
+        headerContainer.addSubview(yourBabyLabel)
+        headerContainer.addSubview(babyInfoLabel)
+        view.addSubview(collectionView)
         view.addSubview(feedingView)
-        view.addSubview(daiperView)
+        view.addSubview(diaper)
     }
 
     private func setupConstraints() {
-        babyButton.snp.remakeConstraints { (make) in
-            make.top.equalTo(view.snp.top).offset(60 * Constraint.xCoeff)
-            make.leading.equalTo(view.snp.leading).offset(20 * Constraint.yCoeff)
+        headerContainer.snp.makeConstraints { make in
+            make.top.equalTo(view)
+            make.leading.trailing.equalToSuperview()
+        }
+
+        babyButton.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(20 * Constraint.yCoeff)
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(12 * Constraint.xCoeff)
             make.width.equalTo(66 * Constraint.yCoeff)
             make.height.equalTo(66 * Constraint.xCoeff)
         }
 
-        yourBabyLabel.snp.remakeConstraints { (make) in
+        yourBabyLabel.snp.makeConstraints { make in
             make.bottom.equalTo(babyButton.snp.centerY).offset(-2 * Constraint.xCoeff)
             make.leading.equalTo(babyButton.snp.trailing).offset(20 * Constraint.yCoeff)
         }
 
-        babyInfoLabel.snp.remakeConstraints { (make) in
+        babyInfoLabel.snp.makeConstraints { make in
             make.top.equalTo(babyButton.snp.centerY).offset(2 * Constraint.xCoeff)
             make.leading.equalTo(babyButton.snp.trailing).offset(20 * Constraint.yCoeff)
         }
 
-        feedingCountView.snp.remakeConstraints { (make) in
-            make.top.equalTo(babyButton.snp.bottom).offset(40 * Constraint.xCoeff)
-            make.leading.equalTo(view.snp.leading).offset(10 * Constraint.yCoeff)
-            make.height.equalTo(80 * Constraint.xCoeff)
-            make.width.equalTo(120 * Constraint.yCoeff)
+        headerContainer.snp.makeConstraints { make in
+            make.bottom.equalTo(babyInfoLabel.snp.bottom).offset(16 * Constraint.xCoeff)
         }
 
-        sleepCountView.snp.remakeConstraints { make in
-            make.top.equalTo(feedingCountView.snp.top)
-            make.centerX.equalTo(view.snp.centerX)
-            make.height.equalTo(80 * Constraint.xCoeff)
-            make.width.equalTo(120 * Constraint.yCoeff)
+        collectionView.snp.makeConstraints { make in
+            make.top.equalTo(headerContainer.snp.bottom)
+            make.leading.trailing.bottom.equalToSuperview()
         }
 
-        diaperCountView.snp.remakeConstraints { make in
-            make.top.equalTo(feedingCountView.snp.top)
-            make.trailing.equalTo(view.snp.trailing).offset(-10 * Constraint.yCoeff)
-            make.height.equalTo(80 * Constraint.xCoeff)
-            make.width.equalTo(120 * Constraint.yCoeff)
-        }
-
-        quickAddLabel.snp.remakeConstraints { make in
-            make.top.equalTo(feedingCountView.snp.bottom).offset(30 * Constraint.xCoeff)
-            make.leading.equalTo(view.snp.leading).offset(10 * Constraint.yCoeff)
-        }
-
-        feedingActionCardButton.snp.remakeConstraints { make in
-            make.top.equalTo(quickAddLabel.snp.bottom).offset(30 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(70 * Constraint.xCoeff)
-        }
-
-        sleepActionCardButton.snp.remakeConstraints { make in
-            make.top.equalTo(feedingActionCardButton.snp.bottom).offset(10 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(70 * Constraint.xCoeff)
-        }
-
-        diaperActionCardButton.snp.remakeConstraints { make in
-            make.top.equalTo(sleepActionCardButton.snp.bottom).offset(10 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(70 * Constraint.xCoeff)
-        }
-
-        growthActionCardButton.snp.remakeConstraints { make in
-            make.top.equalTo(diaperActionCardButton.snp.bottom).offset(10 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(70 * Constraint.xCoeff)
-        }
-
-        feedingView.snp.remakeConstraints { make in
+        feedingView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
 
-        daiperView.snp.remakeConstraints { make in
+        diaper.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
-
-        // Prepare diaper view off-screen for slide-in animation
-        daiperView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
+        diaper.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
     }
 
-    /// Switch to a tab by index. Order: 0 = Home, 1 = Feeding, 2 = Sleep, 3 = Diaper, 4 = Settings.
     private func switchToTab(index: Int) {
         guard let tabBar = tabBarController, index >= 0, index < (tabBar.viewControllers?.count ?? 0) else { return }
         tabBar.selectedIndex = index
@@ -322,22 +273,108 @@ class MainViewController: UIViewController {
     }
 
     @objc private func pressBabyButton() {
-        switchToTab(index: 4) // Settings
+        switchToTab(index: 4)
     }
 
-    @objc private func feedingActionCardButtonPressed() {
-        switchToTab(index: 1) // Feeding
+    private func handleQuickAddTap(_ item: QuickAddItem) {
+        switch item {
+        case .feeding:
+            switchToTab(index: 1)
+        case .sleep:
+            switchToTab(index: 2)
+        case .diaper:
+            switchToTab(index: 3)
+        case .growth:
+            let vc = GrowthViewController()
+            navigationController?.pushViewController(vc, animated: true)
+        case .vaccination:
+            navigationController?.pushViewController(VaccinationViewController(), animated: true)
+        case .doctorVisit:
+            navigationController?.pushViewController(DoctorVisitViewController(), animated: true)
+        case .historyOfIllness:
+            navigationController?.pushViewController(HistoryOfIllnessViewController(), animated: true)
+        }
     }
 
-    @objc private func sleepActionCardButtonPressed() {
-        switchToTab(index: 2) // Sleep
+    private func feedingCount() -> Int { 0 }
+    private func diaperCount() -> Int { 0 }
+}
+
+// MARK: - UICollectionViewDataSource, UICollectionViewDelegateFlowLayout
+
+extension MainViewController: UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout {
+
+    func numberOfSections(in collectionView: UICollectionView) -> Int {
+        Section.allCases.count
     }
 
-    @objc private func diaperActionCardButtonPressed() {
-        switchToTab(index: 3) // Diaper
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        switch Section(rawValue: section) {
+        case .stats: return 1
+        case .quickAdd: return QuickAddItem.allCases.count
+        case .none: return 0
+        }
     }
 
-    @objc private func growthActionCardButtonPressed() {
-        switchToTab(index: 4) // Settings
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        switch Section(rawValue: indexPath.section) {
+        case .stats:
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: MainStatsRowCell.reuseId, for: indexPath) as! MainStatsRowCell
+            cell.configure(feedingCount: feedingCount(), sleepMinutes: minute, diaperCount: diaperCount())
+            return cell
+        case .quickAdd:
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: MainActionCardCell.reuseId, for: indexPath) as! MainActionCardCell
+            let item = QuickAddItem(rawValue: indexPath.item)!
+            cell.configure(
+                backgroundColor: item.backgroundColor,
+                icon: UIImage(systemName: item.iconName),
+                title: item.title
+            )
+            cell.onTap = { [weak self] in
+                self?.handleQuickAddTap(item)
+            }
+            return cell
+        case .none:
+            fatalError("Unexpected section")
+        }
+    }
+
+    func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
+        guard kind == UICollectionView.elementKindSectionHeader, Section(rawValue: indexPath.section) == .quickAdd else {
+            let header = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "SectionHeader", for: indexPath)
+            header.subviews.forEach { $0.removeFromSuperview() }
+            return header
+        }
+        let header = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "SectionHeader", for: indexPath)
+        header.subviews.forEach { $0.removeFromSuperview() }
+        let label = UILabel()
+        label.text = "Quick Add"
+        label.font = UIFont.preferredFont(forTextStyle: .title2)
+        label.textColor = .black
+        header.addSubview(label)
+        label.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(0)
+            make.centerY.equalToSuperview()
+        }
+        return header
+    }
+
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        let width = collectionView.bounds.width - 20
+        switch Section(rawValue: indexPath.section) {
+        case .stats:
+            return CGSize(width: width, height: 80 * Constraint.xCoeff)
+        case .quickAdd:
+            return CGSize(width: width, height: 70 * Constraint.xCoeff)
+        case .none:
+            return .zero
+        }
+    }
+
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
+        guard Section(rawValue: section) == .quickAdd else {
+            return CGSize(width: 0, height: 0)
+        }
+        return CGSize(width: collectionView.bounds.width, height: 44)
     }
 }
