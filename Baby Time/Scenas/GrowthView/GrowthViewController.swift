@@ -1,40 +1,31 @@
 import UIKit
-import SnapKit
+import SwiftUI
 
 final class GrowthViewController: UIViewController {
 
-    private lazy var backButton: UIButton = {
-        let view = UIButton(type: .system)
-        view.setTitle(" Back", for: .normal)
-        view.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        view.titleLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-        view.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        return view
-    }()
+    private let viewModel = GrowthComparisonViewModel()
+    private var hostingController: UIHostingController<GrowthMainView>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .yellow
-        setupUI()
-        setupConstraints()
+        view.backgroundColor = .viewsBackGourdColor
+        embedSwiftUI()
     }
 
-    private func setupUI() {
-        view.addSubview(backButton)
-    }
-
-    private func setupConstraints() {
-        backButton.snp.makeConstraints {
-            $0.top.equalTo(view.safeAreaLayoutGuide).offset(16 * Constraint.xCoeff)
-            $0.leading.equalToSuperview().offset(20 * Constraint.yCoeff)
-        }
-    }
-
-    @objc private func backTapped() {
-        if navigationController != nil {
-            navigationController?.popViewController(animated: true)
-        } else {
-            dismiss(animated: true)
-        }
+    private func embedSwiftUI() {
+        let mainView = GrowthMainView(viewModel: viewModel)
+        let host = UIHostingController(rootView: mainView)
+        host.view.backgroundColor = .clear
+        addChild(host)
+        view.addSubview(host.view)
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            host.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            host.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            host.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        host.didMove(toParent: self)
+        hostingController = host
     }
 }
