@@ -6,8 +6,7 @@ class MainViewController: UIViewController {
     var minute = 0
 
     private enum Section: Int, CaseIterable {
-        case stats = 0
-        case quickAdd = 1
+        case quickAdd = 0
     }
 
     private enum QuickAddItem: Int, CaseIterable {
@@ -105,7 +104,6 @@ class MainViewController: UIViewController {
         cv.backgroundColor = .clear
         cv.delegate = self
         cv.dataSource = self
-        cv.register(MainStatsRowCell.self, forCellWithReuseIdentifier: MainStatsRowCell.reuseId)
         cv.register(MainActionCardCell.self, forCellWithReuseIdentifier: MainActionCardCell.reuseId)
         cv.register(
             UICollectionReusableView.self,
@@ -299,8 +297,69 @@ class MainViewController: UIViewController {
         }
     }
 
-    private func feedingCount() -> Int { 0 }
-    private func diaperCount() -> Int { 0 }
+    // MARK: - Stats for main screen
+
+    private func feedingCount() -> Int {
+        let cutoff = Date().addingTimeInterval(-24 * 60 * 60).timeIntervalSince1970
+        return FeedingLogStore.loadEntries().filter { ($0.savedAtEpochSeconds ?? 0) >= cutoff }.count
+    }
+
+    private func sleepMinutes() -> Int {
+        let cutoff = Date().addingTimeInterval(-24 * 60 * 60)
+        let now = Date()
+        return SleepSessionStore.load().reduce(0) { partial, session in
+            let start = max(session.start, cutoff)
+            let end = min(session.end, now)
+            let seconds = max(0, end.timeIntervalSince(start))
+            return partial + Int(seconds / 60)
+        }
+    }
+
+    private func diaperCount() -> Int {
+        let cutoff = Date().addingTimeInterval(-24 * 60 * 60)
+        return DiaperLogStore.load().filter { $0.date >= cutoff }.count
+    }
+
+    private func currentHeightText() -> String {
+        let data = GrowthComparisonStore.loadOrMigrate()
+        if let h = data.babyHeightCm, h > 0 {
+            if h == floor(h) { return "\(Int(h)) cm" }
+            return String(format: "%.1f cm", h)
+        }
+        return "—"
+    }
+
+    private func vaccinationCount() -> Int {
+        VisitReminderStore.load(kind: .vaccination).count
+    }
+
+    private func doctorVisitCount() -> Int {
+        VisitReminderStore.load(kind: .doctorVisit).count
+    }
+
+    private func historyOfIllnessCount() -> Int {
+        // No persistence yet for illness history.
+        0
+    }
+
+    private func quickAddValueText(for item: QuickAddItem) -> String? {
+        switch item {
+        case .feeding:
+            return "\(feedingCount())"
+        case .sleep:
+            return "\(sleepMinutes())m"
+        case .diaper:
+            return "\(diaperCount())"
+        case .growth:
+            return currentHeightText()
+        case .vaccination:
+            return "\(vaccinationCount())"
+        case .doctorVisit:
+            return "\(doctorVisitCount())"
+        case .historyOfIllness:
+            return "\(historyOfIllnessCount())"
+        }
+    }
 }
 
 // MARK: - UICollectionViewDataSource, UICollectionViewDelegateFlowLayout
@@ -313,7 +372,6 @@ extension MainViewController: UICollectionViewDataSource, UICollectionViewDelega
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         switch Section(rawValue: section) {
-        case .stats: return 1
         case .quickAdd: return QuickAddItem.allCases.count
         case .none: return 0
         }
@@ -321,17 +379,14 @@ extension MainViewController: UICollectionViewDataSource, UICollectionViewDelega
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         switch Section(rawValue: indexPath.section) {
-        case .stats:
-            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: MainStatsRowCell.reuseId, for: indexPath) as! MainStatsRowCell
-            cell.configure(feedingCount: feedingCount(), sleepMinutes: minute, diaperCount: diaperCount())
-            return cell
         case .quickAdd:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: MainActionCardCell.reuseId, for: indexPath) as! MainActionCardCell
             let item = QuickAddItem(rawValue: indexPath.item)!
             cell.configure(
                 backgroundColor: item.backgroundColor,
                 icon: UIImage(systemName: item.iconName),
-                title: item.title
+                title: item.title,
+                valueText: quickAddValueText(for: item)
             )
             cell.onTap = { [weak self] in
                 self?.handleQuickAddTap(item)
@@ -351,7 +406,7 @@ extension MainViewController: UICollectionViewDataSource, UICollectionViewDelega
         let header = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "SectionHeader", for: indexPath)
         header.subviews.forEach { $0.removeFromSuperview() }
         let label = UILabel()
-        label.text = "Quick Add"
+//        label.text = "Quick Add"
         label.font = UIFont.preferredFont(forTextStyle: .title2)
         label.textColor = .black
         header.addSubview(label)
@@ -365,8 +420,6 @@ extension MainViewController: UICollectionViewDataSource, UICollectionViewDelega
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         let width = collectionView.bounds.width - 20
         switch Section(rawValue: indexPath.section) {
-        case .stats:
-            return CGSize(width: width, height: 80 * Constraint.xCoeff)
         case .quickAdd:
             return CGSize(width: width, height: 70 * Constraint.xCoeff)
         case .none:

@@ -111,16 +111,6 @@ class FeedingViewCell: UICollectionViewCell {
         return view
     }()
 
-
-    private lazy var dateLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.font = .systemFont(ofSize: 13, weight: .regular)
-        view.textColor = UIColor.brown.withAlphaComponent(0.7)
-        view.textAlignment = .right
-        view.text = "Dec 26"
-        return view
-    }()
-
     // MARK: - Init
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -141,7 +131,6 @@ class FeedingViewCell: UICollectionViewCell {
         amountFeedLabel.text = nil
         noteInfoLabel.text = nil
         timeLabel.text = nil
-        dateLabel.text = nil
         iconView.image = nil
         iconContainer.backgroundColor = UIColor.feedingViewColor.withAlphaComponent(0.9)
         resetSwipe(animated: false)
@@ -161,10 +150,8 @@ class FeedingViewCell: UICollectionViewCell {
         backgroundCard.addSubview(amountFeedLabel)
         backgroundCard.addSubview(noteInfoLabel)
         backgroundCard.addSubview(timeLabel)
-        backgroundCard.addSubview(dateLabel)
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         timeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        dateLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
     private func setupConstraints() {
@@ -197,19 +184,13 @@ class FeedingViewCell: UICollectionViewCell {
 
         // Right-side time/date stack
         timeLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(14 * Constraint.xCoeff)
+            make.centerY.equalToSuperview()
             make.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
-        }
-
-        dateLabel.snp.makeConstraints { make in
-            make.top.equalTo(timeLabel.snp.bottom).offset(2 * Constraint.xCoeff)
-            make.trailing.equalTo(timeLabel)
-            make.bottom.lessThanOrEqualToSuperview().inset(12 * Constraint.xCoeff)
         }
 
         // Title and subtitle in the middle, constrained between icon and time
         titleLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(12 * Constraint.xCoeff)
+            make.top.equalToSuperview().offset(18 * Constraint.xCoeff)
             make.leading.equalTo(iconContainer.snp.trailing).offset(12 * Constraint.yCoeff)
             make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
         }
@@ -350,7 +331,6 @@ class FeedingViewCell: UICollectionViewCell {
         }
 
         timeLabel.text = vm.timeText
-        dateLabel.text = vm.dateText
     }
 }
 

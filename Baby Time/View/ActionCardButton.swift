@@ -26,6 +26,17 @@ final class ActionCardButton: UIView {
         return view
     }()
 
+    private lazy var valueLabel: UILabel = {
+        let view = UILabel(frame: .zero)
+        view.font = .systemFont(ofSize: 18, weight: .bold)
+        view.textColor = .buttonTitleColor
+        view.textAlignment = .right
+        view.setContentCompressionResistancePriority(.required, for: .horizontal)
+        view.setContentHuggingPriority(.required, for: .horizontal)
+        view.isHidden = true
+        return view
+    }()
+
     // MARK: - Init
 
     override init(frame: CGRect) {
@@ -47,6 +58,7 @@ final class ActionCardButton: UIView {
 
         addSubview(iconImageView)
         addSubview(titleLabel)
+        addSubview(valueLabel)
     }
 
     private func setupConstraint() {
@@ -62,6 +74,12 @@ final class ActionCardButton: UIView {
             $0.top.equalTo(iconImageView.snp.bottom).offset(8 * Constraint.xCoeff)
             $0.leading.equalTo(snp.leading).offset(20 * Constraint.yCoeff)
 //            $0.centerX.equalToSuperview()
+        }
+
+        valueLabel.snp.makeConstraints {
+            $0.centerY.equalToSuperview()
+            $0.trailing.equalToSuperview().inset(20 * Constraint.yCoeff)
+            $0.leading.greaterThanOrEqualTo(iconImageView.snp.trailing).offset(12 * Constraint.yCoeff)
         }
     }
 
@@ -81,6 +99,7 @@ final class ActionCardButton: UIView {
         backgroundColor: UIColor,
         icon: UIImage?,
         title: String,
+        valueText: String? = nil,
         textColor: UIColor = .black,
         iconColor: UIColor = .black
     ) {
@@ -89,5 +108,15 @@ final class ActionCardButton: UIView {
         iconImageView.tintColor = iconColor
         titleLabel.text = title
         titleLabel.textColor = textColor
+
+        let trimmed = valueText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let trimmed, !trimmed.isEmpty {
+            valueLabel.isHidden = false
+            valueLabel.text = trimmed
+            valueLabel.textColor = textColor
+        } else {
+            valueLabel.isHidden = true
+            valueLabel.text = nil
+        }
     }
 }

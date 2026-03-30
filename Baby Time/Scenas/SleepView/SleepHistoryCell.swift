@@ -31,27 +31,23 @@ final class SleepHistoryCell: UICollectionViewCell {
         return view
     }()
 
-    private lazy var contentCard: UIView = {
-        let view = UIView()
-        view.backgroundColor = .systemBackground
-        view.layer.cornerRadius = 22
-        view.clipsToBounds = true
-        return view
-    }()
-
-    private lazy var emptyStateView: EmptyStateView = {
-        let view = EmptyStateView()
-        return view
-    }()
-
-    private lazy var iconBox: UIView = {
+    private lazy var backgroundCard: UIView = {
         let view = UIView(frame: .zero)
-        view.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.25)
-        view.layer.cornerRadius = 14
+        view.backgroundColor = .white
+        view.makeRoundCorners(16)
+        view.layer.masksToBounds = true
         return view
     }()
 
-    private lazy var iconImage: UIImageView = {
+    private lazy var iconContainer: UIView = {
+        let view = UIView(frame: .zero)
+        view.layer.cornerRadius = 14
+        view.layer.masksToBounds = true
+        view.backgroundColor = UIColor.sleepViewColor.withAlphaComponent(0.9)
+        return view
+    }()
+
+    private lazy var iconView: UIImageView = {
         let view = UIImageView(frame: .zero)
         view.image = UIImage(systemName: "moon")
         view.tintColor = .white
@@ -61,32 +57,24 @@ final class SleepHistoryCell: UICollectionViewCell {
 
     private lazy var titleLabel: UILabel = {
         let view = UILabel(frame: .zero)
-        view.text = "Sleep"
-        view.font = .systemFont(ofSize: 20, weight: .semibold)
-        view.textColor = UIColor.label.withAlphaComponent(0.85)
+        view.font = .systemFont(ofSize: 16, weight: .semibold)
+        view.textColor = .label
         return view
     }()
 
     private lazy var subtitleLabel: UILabel = {
         let view = UILabel(frame: .zero)
-        view.font = .systemFont(ofSize: 16)
-        view.textColor = .secondaryLabel
+        view.font = .systemFont(ofSize: 14, weight: .regular)
+        view.textColor = UIColor.brown.withAlphaComponent(0.8)
+        view.numberOfLines = 1
         return view
     }()
 
     private lazy var timeLabel: UILabel = {
         let view = UILabel(frame: .zero)
-        view.font = .systemFont(ofSize: 18, weight: .semibold)
+        view.font = .systemFont(ofSize: 15, weight: .semibold)
         view.textAlignment = .right
-        view.textColor = UIColor.label.withAlphaComponent(0.85)
-        return view
-    }()
-
-    private lazy var dateLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.font = .systemFont(ofSize: 15)
-        view.textAlignment = .right
-        view.textColor = .secondaryLabel
+        view.textColor = UIColor.brown.withAlphaComponent(0.9)
         return view
     }()
 
@@ -98,8 +86,6 @@ final class SleepHistoryCell: UICollectionViewCell {
         setupUI()
         setupConstraints()
         setupSwipeGesture()
-        configureViews()
-        setContentVisibility(isEmpty: true)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -114,14 +100,12 @@ final class SleepHistoryCell: UICollectionViewCell {
         contentView.addSubview(deleteStripView)
         deleteStripView.addSubview(deleteLabel)
         contentView.addSubview(cardWrapperView)
-        cardWrapperView.addSubview(contentCard)
-        contentCard.addSubview(emptyStateView)
-        contentCard.addSubview(iconBox)
-        iconBox.addSubview(iconImage)
-        contentCard.addSubview(titleLabel)
-        contentCard.addSubview(subtitleLabel)
-        contentCard.addSubview(timeLabel)
-        contentCard.addSubview(dateLabel)
+        cardWrapperView.addSubview(backgroundCard)
+        backgroundCard.addSubview(iconContainer)
+        iconContainer.addSubview(iconView)
+        backgroundCard.addSubview(titleLabel)
+        backgroundCard.addSubview(subtitleLabel)
+        backgroundCard.addSubview(timeLabel)
     }
 
     private func setupConstraints() {
@@ -131,47 +115,36 @@ final class SleepHistoryCell: UICollectionViewCell {
         }
         deleteLabel.snp.makeConstraints { $0.center.equalToSuperview() }
         cardWrapperView.snp.makeConstraints { $0.edges.equalToSuperview() }
-        contentCard.snp.makeConstraints { $0.edges.equalToSuperview() }
+        backgroundCard.snp.makeConstraints { $0.edges.equalToSuperview() }
 
-        emptyStateView.snp.remakeConstraints {
-            $0.top.leading.trailing.equalToSuperview()
-            $0.height.equalTo(180 * Constraint.xCoeff)
+        iconContainer.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
+            make.centerY.equalToSuperview()
+            make.width.equalTo(44 * Constraint.yCoeff)
+            make.height.equalTo(44 * Constraint.xCoeff)
+        }
+        iconView.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.width.equalTo(24 * Constraint.yCoeff)
+            make.height.equalTo(24 * Constraint.xCoeff)
         }
 
-        iconBox.snp.makeConstraints {
-            $0.leading.equalToSuperview().offset(18 * Constraint.yCoeff)
-            $0.centerY.equalToSuperview()
-            $0.width.equalTo(60 * Constraint.yCoeff)
-            $0.height.equalTo(60 * Constraint.xCoeff)
+        timeLabel.snp.makeConstraints { make in
+            make.centerY.equalToSuperview()
+            make.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
         }
 
-        iconImage.snp.makeConstraints {
-            $0.center.equalToSuperview()
-            $0.width.equalTo(26 * Constraint.yCoeff)
-            $0.height.equalTo(26 * Constraint.xCoeff)
+        titleLabel.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(18 * Constraint.xCoeff)
+            make.leading.equalTo(iconContainer.snp.trailing).offset(12 * Constraint.yCoeff)
+            make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
         }
 
-        titleLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(18 * Constraint.xCoeff)
-            $0.leading.equalTo(iconBox.snp.trailing).offset(16 * Constraint.yCoeff)
-            $0.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
-        }
-
-        subtitleLabel.snp.makeConstraints {
-            $0.top.equalTo(titleLabel.snp.bottom).offset(6 * Constraint.xCoeff)
-            $0.leading.equalTo(titleLabel)
-            $0.bottom.equalToSuperview().offset(-18 * Constraint.xCoeff)
-            $0.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
-        }
-
-        timeLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(18 * Constraint.xCoeff)
-            $0.trailing.equalToSuperview().offset(-18 * Constraint.yCoeff)
-        }
-
-        dateLabel.snp.makeConstraints {
-            $0.top.equalTo(timeLabel.snp.bottom).offset(6 * Constraint.xCoeff)
-            $0.trailing.equalTo(timeLabel)
+        subtitleLabel.snp.makeConstraints { make in
+            make.top.equalTo(titleLabel.snp.bottom).offset(4 * Constraint.xCoeff)
+            make.leading.equalTo(titleLabel)
+            make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
+            make.bottom.lessThanOrEqualToSuperview().inset(12 * Constraint.xCoeff)
         }
     }
 
@@ -225,36 +198,13 @@ final class SleepHistoryCell: UICollectionViewCell {
         if animated { UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut], animations: work) } else { work() }
     }
 
-    private func configureViews() {
-        emptyStateView.configure(
-            icon: UIImage(systemName: "fork.knife"),
-            iconTint: .sleepViewColor.withAlphaComponent(0.95),
-            circleColor: .sleepViewColor.withAlphaComponent(0.40),
-            title: "No feedings yet",
-            subtitle: "Tap the + button to log a feeding"
-        )
-    }
-
-    private func setContentVisibility(isEmpty: Bool) {
-        emptyStateView.isHidden = !isEmpty
-        iconBox.isHidden = isEmpty
-        iconImage.isHidden = isEmpty
-        titleLabel.isHidden = isEmpty
-        subtitleLabel.isHidden = isEmpty
-        timeLabel.isHidden = isEmpty
-        dateLabel.isHidden = isEmpty
-    }
-
     func configure(statusText: String, timeText: String, dateText: String) {
+        titleLabel.text = "Sleep"
         subtitleLabel.text = statusText
         timeLabel.text = timeText
-        dateLabel.text = dateText
-        setContentVisibility(isEmpty: false)
     }
 
-    func configureEmpty() {
-        setContentVisibility(isEmpty: true)
-    }
+    func configureEmpty() {}
 }
 
 extension SleepHistoryCell: UIGestureRecognizerDelegate {

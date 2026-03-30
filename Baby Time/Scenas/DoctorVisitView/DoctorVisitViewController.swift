@@ -6,8 +6,8 @@ final class DoctorVisitViewController: UIViewController {
     private var visits: [VisitReminder] = []
     private let kind: VisitReminder.Kind = .doctorVisit
 
-    private lazy var sectionHeaderView: SectionHeaderView = {
-        let view = SectionHeaderView()
+    private lazy var sectionHeaderView: VisitSectionHeaderView = {
+        let view = VisitSectionHeaderView()
         view.onTapPlus = { [weak self] in
             self?.presentAddDoctorVisit()
         }

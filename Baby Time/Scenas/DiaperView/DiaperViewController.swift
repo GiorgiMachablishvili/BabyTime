@@ -45,6 +45,7 @@ final class DiaperViewController: UIViewController {
 
             let newItem = DiaperLogItem(type: selectedType, note: nil, date: Date())
             self.items.insert(newItem, at: 0)
+            self.saveToStore()
 
             self.applySnapshot(animated: true)
             self.dismissBottomSheet()
@@ -56,12 +57,40 @@ final class DiaperViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .viewsBackGourdColor
+        loadFromStore()
 
         setupUI()
         setupConstraints()
         configureViews()
         configureCollection()
         applySnapshot(animated: false)
+    }
+
+    private func loadFromStore() {
+        let entries = DiaperLogStore.load()
+        items = entries.compactMap { entry in
+            let type: DiaperType
+            switch entry.typeRaw {
+            case "wet": type = .wet
+            case "mixed": type = .mixed
+            case "dirty": type = .dirty
+            default: return nil
+            }
+            return DiaperLogItem(id: entry.id, type: type, note: entry.note, date: entry.date)
+        }
+    }
+
+    private func saveToStore() {
+        let entries: [DiaperLogEntry] = items.map { item in
+            let raw: String
+            switch item.type {
+            case .wet: raw = "wet"
+            case .mixed: raw = "mixed"
+            case .dirty: raw = "dirty"
+            }
+            return DiaperLogEntry(id: item.id, typeRaw: raw, note: item.note, date: item.date)
+        }
+        DiaperLogStore.save(entries)
     }
 
     private func setupUI() {

@@ -21,6 +21,7 @@ final class SleepViewController: UIViewController {
         view.register(SleepTimerCell.self, forCellWithReuseIdentifier: "SleepTimerCell")
         view.register(SleepHistoryTitleCell.self, forCellWithReuseIdentifier: "SleepHistoryTitleCell")
         view.register(SleepHistoryCell.self, forCellWithReuseIdentifier: "SleepHistoryCell")
+        view.register(SleepDayHeaderCell.self, forCellWithReuseIdentifier: SleepDayHeaderCell.reuseId)
         return view
     }()
 
@@ -28,6 +29,13 @@ final class SleepViewController: UIViewController {
     private var timer: Timer?
     private var sleepStartDate: Date?
     private var sessions: [SleepSession] = []
+
+    private enum SessionRow: Hashable {
+        case header(String)
+        case session(UUID)
+    }
+    private var sessionRows: [SessionRow] = []
+    private var sessionById: [UUID: SleepSession] = [:]
 
     private let timeFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -44,6 +52,8 @@ final class SleepViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .viewsBackGourdColor
+        sessions = SleepSessionStore.load()
+        rebuildSessionRows()
 
         setupUI()
         setupConstraints()
@@ -95,10 +105,12 @@ final class SleepViewController: UIViewController {
 
         let session = SleepSession(start: start, end: end)
         sessions.insert(session, at: 0)
+        SleepSessionStore.save(sessions)
+        rebuildSessionRows()
 
         collectionView.performBatchUpdates({
             collectionView.reloadItems(at: [IndexPath(item: 0, section: 0)])
-            collectionView.insertItems(at: [IndexPath(item: 0, section: 2)])
+            collectionView.reloadSections(IndexSet(integer: 2))
         })
     }
 
@@ -110,12 +122,26 @@ final class SleepViewController: UIViewController {
         return "\(mins):" + String(format: "%02d", secs)
     }
 
-    private func deleteSleepSession(at indexPath: IndexPath) {
-        guard indexPath.section == 2, indexPath.item < sessions.count else { return }
-        sessions.remove(at: indexPath.item)
-        collectionView.performBatchUpdates {
-            collectionView.deleteItems(at: [indexPath])
+    private func deleteSleepSession(id: UUID) {
+        sessions.removeAll { $0.id == id }
+        SleepSessionStore.save(sessions)
+        rebuildSessionRows()
+        collectionView.reloadSections(IndexSet(integer: 2))
+    }
+
+    private func rebuildSessionRows() {
+        sessionById = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
+        var rows: [SessionRow] = []
+        var lastHeader: String?
+        for s in sessions.sorted(by: { $0.end > $1.end }) {
+            let header = dateFormatter.string(from: s.end)
+            if header != lastHeader {
+                rows.append(.header(header))
+                lastHeader = header
+            }
+            rows.append(.session(s.id))
         }
+        sessionRows = rows
     }
 
     deinit {
@@ -133,7 +159,7 @@ extension SleepViewController: UICollectionViewDataSource {
         switch section {
         case 0: return 1
         case 1: return 1
-        case 2: return sessions.count
+        case 2: return sessionRows.count
         default: return 0
         }
     }
@@ -160,20 +186,26 @@ extension SleepViewController: UICollectionViewDataSource {
             return collectionView.dequeueReusableCell(withReuseIdentifier: "SleepHistoryTitleCell", for: indexPath)
 
         case 2:
-            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "SleepHistoryCell", for: indexPath) as! SleepHistoryCell
-            let session = sessions[indexPath.item]
-
-            let timeText = timeFormatter.string(from: session.end)
-            let dateText = dateFormatter.string(from: session.end)
-
-            let durationSeconds = Int(session.end.timeIntervalSince(session.start))
-            let durationMinutes = max(1, durationSeconds / 60)
-            let statusText = "sleep time: \(durationMinutes) min"
-            cell.configure(statusText: statusText, timeText: timeText, dateText: dateText)
-            cell.onDelete = { [weak self] in
-                self?.deleteSleepSession(at: indexPath)
+            let row = sessionRows[indexPath.item]
+            switch row {
+            case .header(let title):
+                let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SleepDayHeaderCell.reuseId, for: indexPath) as! SleepDayHeaderCell
+                cell.configure(title: title)
+                return cell
+            case .session(let id):
+                let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "SleepHistoryCell", for: indexPath) as! SleepHistoryCell
+                if let session = sessionById[id] {
+                    let timeText = timeFormatter.string(from: session.end)
+                    let durationSeconds = Int(session.end.timeIntervalSince(session.start))
+                    let durationMinutes = max(1, durationSeconds / 60)
+                    let statusText = "sleep time: \(durationMinutes) min"
+                    cell.configure(statusText: statusText, timeText: timeText, dateText: "")
+                    cell.onDelete = { [weak self] in
+                        self?.deleteSleepSession(id: id)
+                    }
+                }
+                return cell
             }
-            return cell
 
         default:
             return UICollectionViewCell()
@@ -195,7 +227,12 @@ extension SleepViewController: UICollectionViewDelegateFlowLayout {
         case 1:
             return CGSize(width: width, height: 44)
         case 2:
-            return CGSize(width: width, height: 98)
+            switch sessionRows[indexPath.item] {
+            case .header:
+                return CGSize(width: collectionView.bounds.width, height: 44)
+            case .session:
+                return CGSize(width: width, height: 100)
+            }
         default:
             return CGSize(width: width, height: 44)
         }

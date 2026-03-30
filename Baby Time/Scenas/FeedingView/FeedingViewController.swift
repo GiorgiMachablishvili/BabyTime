@@ -11,7 +11,21 @@ class FeedingViewController: UIViewController {
     }
 
     private var reminders: [FeedingReminder] = []
-    private var items: [FeedingViewCell.ViewModel] = []
+    private var logEntries: [FeedingLogEntry] = []
+
+    private enum LogRow: Hashable {
+        case header(String)
+        case entry(UUID)
+    }
+
+    private var logRows: [LogRow] = []
+    private var entryById: [UUID: FeedingLogEntry] = [:]
+
+    private let dayHeaderFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "MMM d"
+        return df
+    }()
 
     private lazy var sectionHeaderView: SectionHeaderView = {
         let view = SectionHeaderView()
@@ -43,6 +57,7 @@ class FeedingViewController: UIViewController {
         view.delegate = self
         view.register(FeedingReminderCell.self, forCellWithReuseIdentifier: FeedingReminderCell.reuseId)
         view.register(FeedingViewCell.self, forCellWithReuseIdentifier: "FeedingViewCell")
+        view.register(FeedingDayHeaderCell.self, forCellWithReuseIdentifier: FeedingDayHeaderCell.reuseId)
         view.register(FeedingSectionHeaderView.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: FeedingSectionHeaderView.reuseId)
         view.isScrollEnabled = true
         view.alwaysBounceVertical = true
@@ -103,7 +118,26 @@ class FeedingViewController: UIViewController {
     }
 
     private func loadLogItems() {
-        items = FeedingLogStore.load()
+        logEntries = FeedingLogStore.loadEntries()
+            .sorted { ($0.savedAtEpochSeconds ?? 0) > ($1.savedAtEpochSeconds ?? 0) }
+        rebuildLogRows()
+    }
+
+    private func rebuildLogRows() {
+        entryById = Dictionary(uniqueKeysWithValues: logEntries.map { ($0.id, $0) })
+        var rows: [LogRow] = []
+        var lastHeader: String?
+
+        for e in logEntries {
+            let date = Date(timeIntervalSince1970: e.savedAtEpochSeconds ?? 0)
+            let header = dayHeaderFormatter.string(from: date)
+            if header != lastHeader {
+                rows.append(.header(header))
+                lastHeader = header
+            }
+            rows.append(.entry(e.id))
+        }
+        logRows = rows
     }
 
     private func setupUI() {
@@ -158,15 +192,15 @@ class FeedingViewController: UIViewController {
             case .solid: vmType = .solid
             }
             let vm = FeedingViewCell.ViewModel(type: vmType, volumeText: volume, notesText: notes, timeText: time, dateText: date)
-            self.items.insert(vm, at: 0)
-            FeedingLogStore.save(self.items)
+            FeedingLogStore.add(vm)
+            self.loadLogItems()
             self.collectionView.reloadData()
             self.updateEmptyState()
         }
     }
 
     private func updateEmptyState() {
-        let hasContent = !reminders.isEmpty || !items.isEmpty
+        let hasContent = !reminders.isEmpty || !logEntries.isEmpty
         emptyStateView.isHidden = hasContent
         collectionView.isHidden = !hasContent
     }
@@ -249,9 +283,9 @@ class FeedingViewController: UIViewController {
     private func moveReminderToHistory(_ reminder: FeedingReminder) {
         guard let reminderIndex = reminders.firstIndex(where: { $0.id == reminder.id }) else { return }
         let vm = viewModel(from: reminder)
-        items.insert(vm, at: 0)
+        FeedingLogStore.add(vm)
+        loadLogItems()
         reminders.remove(at: reminderIndex)
-        FeedingLogStore.save(items)
         FeedingReminderStore.save(reminders)
         FeedingReminderNotificationManager.unschedule(reminderId: reminder.id)
 
@@ -259,7 +293,7 @@ class FeedingViewController: UIViewController {
         let insertPath = IndexPath(item: 0, section: Section.log.rawValue)
         collectionView.performBatchUpdates {
             collectionView.deleteItems(at: [deletePath])
-            collectionView.insertItems(at: [insertPath])
+            collectionView.reloadSections(IndexSet(integer: Section.log.rawValue))
         } completion: { [weak self] _ in
             self?.updateEmptyState()
         }
@@ -283,7 +317,7 @@ extension FeedingViewController: UICollectionViewDataSource, UICollectionViewDel
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .reminders: return reminders.count
-        case .log: return items.isEmpty ? 0 : items.count
+        case .log: return logRows.count
         }
     }
 
@@ -321,13 +355,22 @@ extension FeedingViewController: UICollectionViewDataSource, UICollectionViewDel
             }
             return cell
         case .log:
-            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "FeedingViewCell", for: indexPath) as! FeedingViewCell
-            let vm = items[indexPath.item]
-            cell.configure(with: vm)
-            cell.onDelete = { [weak self] in
-                self?.deleteItem(at: indexPath)
+            let row = logRows[indexPath.item]
+            switch row {
+            case .header(let title):
+                let cell = collectionView.dequeueReusableCell(withReuseIdentifier: FeedingDayHeaderCell.reuseId, for: indexPath) as! FeedingDayHeaderCell
+                cell.configure(title: title)
+                return cell
+            case .entry(let id):
+                let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "FeedingViewCell", for: indexPath) as! FeedingViewCell
+                if let entry = entryById[id] {
+                    cell.configure(with: viewModel(from: entry))
+                    cell.onDelete = { [weak self] in
+                        self?.deleteEntry(id: id)
+                    }
+                }
+                return cell
             }
-            return cell
         }
     }
 
@@ -335,7 +378,13 @@ extension FeedingViewController: UICollectionViewDataSource, UICollectionViewDel
         let width = collectionView.bounds.width - 16 * Constraint.yCoeff
         switch Section(rawValue: indexPath.section)! {
         case .reminders: return CGSize(width: width, height: 88 * Constraint.xCoeff)
-        case .log: return CGSize(width: width, height: 84 * Constraint.xCoeff)
+        case .log:
+            switch logRows[indexPath.item] {
+            case .header:
+                return CGSize(width: collectionView.bounds.width, height: 44 * Constraint.xCoeff)
+            case .entry:
+                return CGSize(width: width, height: 100 * Constraint.xCoeff)
+            }
         }
     }
 
@@ -343,14 +392,29 @@ extension FeedingViewController: UICollectionViewDataSource, UICollectionViewDel
         CGSize(width: collectionView.bounds.width, height: 72 * Constraint.xCoeff)
     }
 
-    private func deleteItem(at indexPath: IndexPath) {
-        guard indexPath.section == Section.log.rawValue, indexPath.item < items.count else { return }
-        items.remove(at: indexPath.item)
-        FeedingLogStore.save(items)
-        collectionView.performBatchUpdates {
-            collectionView.deleteItems(at: [indexPath])
-        } completion: { [weak self] _ in
-            self?.updateEmptyState()
+    private func deleteEntry(id: UUID) {
+        logEntries.removeAll { $0.id == id }
+        FeedingLogStore.saveEntries(logEntries)
+        rebuildLogRows()
+        collectionView.reloadSections(IndexSet(integer: Section.log.rawValue))
+        updateEmptyState()
+    }
+
+    private func viewModel(from entry: FeedingLogEntry) -> FeedingViewCell.ViewModel {
+        let type: FeedingViewCell.ViewModel.FeedingType
+        switch entry.typeRaw {
+        case "breast": type = .breast
+        case "bottle": type = .bottle
+        case "formula": type = .formula
+        case "solid": type = .solid
+        default: type = .solid
         }
+        return FeedingViewCell.ViewModel(
+            type: type,
+            volumeText: entry.volumeText,
+            notesText: entry.notesText,
+            timeText: entry.timeText,
+            dateText: entry.dateText
+        )
     }
 }

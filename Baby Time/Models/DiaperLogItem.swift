@@ -3,10 +3,17 @@
 import UIKit
 
 struct DiaperLogItem: Hashable {
-    let id = UUID()
+    let id: UUID
     let type: DiaperType
     let note: String?
     let date: Date
+
+    init(id: UUID = UUID(), type: DiaperType, note: String?, date: Date) {
+        self.id = id
+        self.type = type
+        self.note = note
+        self.date = date
+    }
 }
 
 enum DiaperType: Hashable {

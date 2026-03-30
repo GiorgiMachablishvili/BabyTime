@@ -34,11 +34,12 @@ final class MainActionCardCell: UICollectionViewCell {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func configure(backgroundColor: UIColor, icon: UIImage?, title: String) {
+    func configure(backgroundColor: UIColor, icon: UIImage?, title: String, valueText: String? = nil) {
         cardView.configure(
             backgroundColor: backgroundColor,
             icon: icon,
             title: title,
+            valueText: valueText,
             textColor: .buttonTitleColor,
             iconColor: .buttonTitleColor
         )

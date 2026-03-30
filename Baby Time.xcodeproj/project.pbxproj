@@ -34,7 +34,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E3FBC70C2EFAC98900DF2844 /* Exceptions for "Baby Time" folder in "Baby Time" target */ = {
+		ABCDEF1234567890ABCDEF12 /* Exceptions for "Baby Time" folder in "Baby Time" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -47,7 +47,7 @@
 		E3FBC6E32EFAC98700DF2844 /* Baby Time */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				E3FBC70C2EFAC98900DF2844 /* Exceptions for "Baby Time" folder in "Baby Time" target */,
+				ABCDEF1234567890ABCDEF12 /* Exceptions for "Baby Time" folder in "Baby Time" target */,
 			);
 			path = "Baby Time";
 			sourceTree = "<group>";
