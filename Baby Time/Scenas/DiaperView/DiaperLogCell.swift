@@ -1,207 +1,181 @@
-
 import UIKit
 import SnapKit
 
 final class DiaperLogCell: UICollectionViewCell {
     static let reuseId = "DiaperLogCell"
 
-    var onDelete: (() -> Void)?
+    var onMenuTap: (() -> Void)?
 
-    private let deleteStripWidth: CGFloat = 80
+    // MARK: - Time column
 
-    private lazy var deleteStripView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .systemRed
-        view.isHidden = true
-        view.makeRoundCorners(16)
-        return view
+    private let timeHourLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 16 * Constraint.yCoeff, weight: .bold)
+        l.textColor = UIColor(hexString: "#222222")
+        l.textAlignment = .right
+        return l
     }()
 
-    private lazy var deleteLabel: UILabel = {
-        let view = UILabel()
-        view.text = "Delete"
-        view.font = .systemFont(ofSize: 14, weight: .semibold)
-        view.textColor = .white
-        view.textAlignment = .center
-        return view
+    private let timeAmPmLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 11 * Constraint.yCoeff, weight: .regular)
+        l.textColor = UIColor(hexString: "#888888")
+        l.textAlignment = .right
+        return l
     }()
 
-    private lazy var cardWrapperView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .clear
-        view.clipsToBounds = true
-        return view
+    // MARK: - Card
+
+    private let card: UIView = {
+        let v = UIView()
+        v.backgroundColor = .white
+        v.layer.cornerRadius = 16 * Constraint.yCoeff
+        v.clipsToBounds = true
+        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.shadowOpacity = 0.04
+        v.layer.shadowRadius = 6
+        v.layer.shadowOffset = CGSize(width: 0, height: 2)
+        return v
     }()
 
-    private let card = UIView()
-    private let iconContainer = UIView()
-    private let iconLabel = UILabel()
+    private let accentStrip: UIView = {
+        let v = UIView()
+        return v
+    }()
 
-    private let titleLabel = UILabel()
-    private let subtitleLabel = UILabel()
+    private let badgeView: UIView = {
+        let v = UIView()
+        v.layer.cornerRadius = 10 * Constraint.yCoeff
+        return v
+    }()
 
-    private let timeLabel = UILabel()
-    private let dateLabel = UILabel()
+    private let badgeLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 12 * Constraint.yCoeff, weight: .semibold)
+        return l
+    }()
 
-    private let textStack = UIStackView()
-    private let rightStack = UIStackView()
+    private let noteLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .regular)
+        l.textColor = UIColor(hexString: "#444444")
+        l.numberOfLines = 2
+        return l
+    }()
+
+    private lazy var menuButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "ellipsis"), for: .normal)
+        b.tintColor = UIColor(hexString: "#aaaaaa")
+        b.addTarget(self, action: #selector(menuTapped), for: .touchUpInside)
+        return b
+    }()
+
+    // MARK: - Init
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         contentView.backgroundColor = .clear
-        contentView.clipsToBounds = true
 
-        contentView.addSubview(deleteStripView)
-        deleteStripView.addSubview(deleteLabel)
-        contentView.addSubview(cardWrapperView)
-        cardWrapperView.addSubview(card)
+        // Time column
+        contentView.addSubview(timeHourLabel)
+        contentView.addSubview(timeAmPmLabel)
 
-        card.backgroundColor = .white
-        card.layer.cornerRadius = 16
+        // Card
+        contentView.addSubview(card)
+        card.addSubview(accentStrip)
+        card.addSubview(badgeView)
+        badgeView.addSubview(badgeLabel)
+        card.addSubview(noteLabel)
+        card.addSubview(menuButton)
 
-        iconContainer.layer.cornerRadius = 16
-        iconLabel.font = .systemFont(ofSize: 22)
-        iconLabel.textAlignment = .center
-
-        iconContainer.addSubview(iconLabel)
-        iconLabel.snp.makeConstraints { $0.center.equalToSuperview() }
-
-        titleLabel.font = .systemFont(ofSize: 20, weight: .semibold)
-        subtitleLabel.font = .systemFont(ofSize: 16, weight: .regular)
-        subtitleLabel.textColor = .secondaryLabel
-
-        timeLabel.font = .systemFont(ofSize: 18, weight: .semibold)
-        timeLabel.textAlignment = .right
-
-        dateLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        dateLabel.textColor = .secondaryLabel
-        dateLabel.textAlignment = .right
-
-        textStack.axis = .vertical
-        textStack.spacing = 6
-        textStack.addArrangedSubview(titleLabel)
-        textStack.addArrangedSubview(subtitleLabel)
-
-        rightStack.axis = .vertical
-        rightStack.spacing = 4
-        rightStack.alignment = .trailing
-        rightStack.addArrangedSubview(timeLabel)
-        rightStack.addArrangedSubview(dateLabel)
-
-        card.addSubview(iconContainer)
-        card.addSubview(textStack)
-        card.addSubview(rightStack)
-
-        deleteStripView.snp.makeConstraints {
-            $0.top.bottom.trailing.equalToSuperview()
-            $0.width.equalTo(deleteStripWidth)
-        }
-        deleteLabel.snp.makeConstraints { $0.center.equalToSuperview() }
-        cardWrapperView.snp.makeConstraints { $0.edges.equalToSuperview() }
-        card.snp.makeConstraints { $0.edges.equalToSuperview() }
-
-        iconContainer.snp.makeConstraints {
-            $0.leading.equalToSuperview().inset(16 * Constraint.yCoeff)
-            $0.centerY.equalToSuperview()
-            $0.width.equalTo(56 * Constraint.yCoeff)
-            $0.height.equalTo(56 * Constraint.xCoeff)
-        }
-
-        rightStack.snp.makeConstraints {
-            $0.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
-            $0.centerY.equalToSuperview()
-        }
-
-        textStack.snp.makeConstraints {
-            $0.leading.equalTo(iconContainer.snp.trailing).offset(14 * Constraint.yCoeff)
-            $0.trailing.lessThanOrEqualTo(rightStack.snp.leading).offset(-12 * Constraint.yCoeff)
-            $0.centerY.equalToSuperview()
-        }
-
-        setupSwipeGesture()
+        setupConstraints()
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        resetSwipe(animated: false)
-        onDelete = nil
+        onMenuTap = nil
     }
 
-    private func setupSwipeGesture() {
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-        pan.delegate = self
-        cardWrapperView.addGestureRecognizer(pan)
-        cardWrapperView.isUserInteractionEnabled = true
-        let tapDelete = UITapGestureRecognizer(target: self, action: #selector(deleteTapped))
-        deleteStripView.addGestureRecognizer(tapDelete)
-        deleteStripView.isUserInteractionEnabled = true
-    }
+    // MARK: - Layout
 
-    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
-        let deltaX = gesture.translation(in: cardWrapperView).x
-        let currentX = cardWrapperView.transform.tx
-        switch gesture.state {
-        case .changed:
-            let newX = max(-deleteStripWidth, min(0, currentX + deltaX))
-            cardWrapperView.transform = CGAffineTransform(translationX: newX, y: 0)
-            gesture.setTranslation(.zero, in: cardWrapperView)
-            deleteStripView.isHidden = (newX >= 0)
-        case .ended, .cancelled:
-            let finalX = max(-deleteStripWidth, min(0, currentX + deltaX))
-            cardWrapperView.transform = CGAffineTransform(translationX: finalX, y: 0)
-            gesture.setTranslation(.zero, in: cardWrapperView)
-            if finalX < -deleteStripWidth / 2 {
-                revealDelete(animated: true)
-                deleteStripView.isHidden = false
-            } else {
-                resetSwipe(animated: true)
-                deleteStripView.isHidden = true
-            }
-        default:
-            break
+    private func setupConstraints() {
+        let timeW: CGFloat = 44 * Constraint.xCoeff
+        let stripW: CGFloat = 5 * Constraint.xCoeff
+
+        timeHourLabel.snp.makeConstraints {
+            $0.leading.equalToSuperview()
+            $0.width.equalTo(timeW)
+            $0.bottom.equalTo(contentView.snp.centerY).offset(-1)
+        }
+        timeAmPmLabel.snp.makeConstraints {
+            $0.leading.equalToSuperview()
+            $0.width.equalTo(timeW)
+            $0.top.equalTo(contentView.snp.centerY).offset(1)
+        }
+
+        card.snp.makeConstraints {
+            $0.leading.equalTo(timeHourLabel.snp.trailing).offset(10 * Constraint.xCoeff)
+            $0.trailing.equalToSuperview()
+            $0.top.bottom.equalToSuperview()
+        }
+
+        accentStrip.snp.makeConstraints {
+            $0.leading.top.bottom.equalToSuperview()
+            $0.width.equalTo(stripW)
+        }
+
+        badgeView.snp.makeConstraints {
+            $0.leading.equalTo(accentStrip.snp.trailing).offset(12 * Constraint.xCoeff)
+            $0.top.equalToSuperview().offset(14 * Constraint.yCoeff)
+        }
+        badgeLabel.snp.makeConstraints {
+            $0.top.bottom.equalToSuperview().inset(4 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview().inset(8 * Constraint.xCoeff)
+        }
+
+        menuButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(12 * Constraint.xCoeff)
+            $0.top.equalToSuperview().offset(12 * Constraint.yCoeff)
+            $0.width.height.equalTo(28 * Constraint.yCoeff)
+        }
+
+        noteLabel.snp.makeConstraints {
+            $0.leading.equalTo(badgeView.snp.leading)
+            $0.trailing.equalTo(menuButton.snp.leading).offset(-8 * Constraint.xCoeff)
+            $0.top.equalTo(badgeView.snp.bottom).offset(6 * Constraint.yCoeff)
+            $0.bottom.lessThanOrEqualToSuperview().inset(12 * Constraint.yCoeff)
         }
     }
 
-    @objc private func deleteTapped() { onDelete?() }
-
-    private func revealDelete(animated: Bool) {
-        let work = { self.cardWrapperView.transform = CGAffineTransform(translationX: -self.deleteStripWidth, y: 0) }
-        if animated { UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut], animations: work) } else { work() }
-    }
-
-    private func resetSwipe(animated: Bool) {
-        let work = {
-            self.cardWrapperView.transform = .identity
-            self.deleteStripView.isHidden = true
-        }
-        if animated { UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut], animations: work) } else { work() }
-    }
+    // MARK: - Configure
 
     func configure(item: DiaperLogItem) {
-        iconContainer.backgroundColor = item.type.iconBackground
-        iconLabel.text = item.type.iconText
-        titleLabel.text = item.type.title
+        // Time
+        let tf = DateFormatter()
+        tf.dateFormat = "h:mm"
+        timeHourLabel.text = tf.string(from: item.date)
+        tf.dateFormat = "a"
+        timeAmPmLabel.text = tf.string(from: item.date)
 
-        let note = (item.note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
-        subtitleLabel.text = note.isEmpty ? item.type.subtitleFallback : note
+        // Accent strip
+        accentStrip.backgroundColor = item.type.accentColor
 
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "h:mm a"
+        // Badge
+        badgeView.backgroundColor = item.type.lightBackground
+        badgeLabel.text = item.type.badgeTitle
+        badgeLabel.textColor = item.type.accentColor
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMM d"
-
-        timeLabel.text = timeFormatter.string(from: item.date)
-        dateLabel.text = dateFormatter.string(from: item.date)
+        // Note
+        let note = item.note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        noteLabel.text = note.isEmpty ? item.type.subtitleFallback : note
     }
-}
 
-extension DiaperLogCell: UIGestureRecognizerDelegate {
-    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
-        let v = pan.velocity(in: cardWrapperView)
-        return abs(v.x) > abs(v.y)
+    // MARK: - Actions
+
+    @objc private func menuTapped() {
+        onMenuTap?()
     }
 }

@@ -4,58 +4,84 @@ import SnapKit
 final class DiaperSummaryCell: UICollectionViewCell {
     static let reuseId = "DiaperSummaryCell"
 
-    private let card = UIView()
-    private let titleLabel = UILabel()
-
-    private let wetLabel = UILabel()
-    private let mixedLabel = UILabel()
-    private let dirtyLabel = UILabel()
+    private let wetPill  = DiaperPillView(type: .wet)
+    private let dirtyPill = DiaperPillView(type: .dirty)
+    private let mixedPill = DiaperPillView(type: .mixed)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        contentView.backgroundColor = .clear
 
-        contentView.addSubview(card)
-        card.snp.makeConstraints { $0.edges.equalToSuperview() }
+        let stack = UIStackView(arrangedSubviews: [wetPill, dirtyPill, mixedPill])
+        stack.axis = .horizontal
+        stack.spacing = 12 * Constraint.xCoeff
+        stack.distribution = .fillEqually
 
-        card.backgroundColor = .white
-        card.layer.cornerRadius = 16
+        contentView.addSubview(stack)
+        stack.snp.makeConstraints { $0.edges.equalToSuperview() }
+    }
 
-        titleLabel.text = "Today's Summary"
-        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        titleLabel.textColor = .secondaryLabel
+    required init?(coder: NSCoder) { fatalError() }
 
-        [wetLabel, mixedLabel, dirtyLabel].forEach {
-            $0.font = .systemFont(ofSize: 22, weight: .semibold)
-        }
+    func configure(wetCount: Int, dirtyCount: Int, mixedCount: Int) {
+        wetPill.setCount(wetCount)
+        dirtyPill.setCount(dirtyCount)
+        mixedPill.setCount(mixedCount)
+    }
+}
 
-        let row = UIStackView(arrangedSubviews: [wetLabel, mixedLabel, dirtyLabel])
-        row.axis = .horizontal
-        row.spacing = 22
-        row.alignment = .center
+// MARK: - DiaperPillView
 
-        card.addSubview(titleLabel)
-        card.addSubview(row)
+private final class DiaperPillView: UIView {
+    private let type: DiaperType
 
-        titleLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(16 * Constraint.xCoeff)
-            $0.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
-        }
+    private lazy var iconView: UIImageView = {
+        let iv = UIImageView()
+        iv.contentMode = .scaleAspectFit
+        iv.tintColor = type.accentColor
+        iv.image = UIImage(systemName: type.sfSymbol)
+        return iv
+    }()
 
-        row.snp.makeConstraints {
-            $0.leading.equalToSuperview().inset(16 * Constraint.yCoeff)
-            $0.top.equalTo(titleLabel.snp.bottom).offset(14 * Constraint.xCoeff)
-            $0.bottom.equalToSuperview().inset(16 * Constraint.xCoeff)
+    private lazy var countLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 32 * Constraint.yCoeff, weight: .bold)
+        l.textColor = type.accentColor
+        l.textAlignment = .center
+        return l
+    }()
+
+    private lazy var titleLabel: UILabel = {
+        let l = UILabel()
+        l.text = type.badgeTitle
+        l.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .medium)
+        l.textColor = type.accentColor
+        l.textAlignment = .center
+        return l
+    }()
+
+    init(type: DiaperType) {
+        self.type = type
+        super.init(frame: .zero)
+        backgroundColor = type.lightBackground
+        layer.cornerRadius = 20 * Constraint.yCoeff
+
+        let stack = UIStackView(arrangedSubviews: [iconView, countLabel, titleLabel])
+        stack.axis = .vertical
+        stack.spacing = 4 * Constraint.yCoeff
+        stack.alignment = .center
+
+        addSubview(stack)
+        iconView.snp.makeConstraints { $0.width.height.equalTo(22 * Constraint.yCoeff) }
+        stack.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.leading.trailing.equalToSuperview().inset(8)
         }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Wet should include `.wet` + `.mixed`
-    /// Dirty should include `.dirty` + `.mixed`
-    /// Mixed should include only `.mixed`
-    func configure(wetCount: Int, mixedCount: Int, dirtyCount: Int) {
-        wetLabel.text = "💧  \(wetCount)"
-        mixedLabel.text = "💧💩  \(mixedCount)"
-        dirtyLabel.text = "💩  \(dirtyCount)"
+    func setCount(_ count: Int) {
+        countLabel.text = "\(count)"
     }
 }

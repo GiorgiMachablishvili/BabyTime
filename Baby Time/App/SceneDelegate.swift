@@ -17,8 +17,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         guard let windowScene = (scene as? UIWindowScene) else { return }
 
-        window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = MainTabBarController()
+        let hasSeenWelcome = UserDefaults.standard.bool(forKey: "hasSeenWelcome")
+        let rootVC = hasSeenWelcome ? MainTabBarController() : WelcomeViewController()
+
+        window = UIWindow(frame: windowScene.coordinateSpace.bounds)
+        window?.windowScene = windowScene
+        window?.rootViewController = rootVC
         window?.makeKeyAndVisible()
     }
 

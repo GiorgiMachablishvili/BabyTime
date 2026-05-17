@@ -1,437 +1,556 @@
 import UIKit
 import SnapKit
 
-class MainViewController: UIViewController {
-
-    var minute = 0
-
+final class MainViewController: UIViewController {
+    // MARK: - Sections & Items
     private enum Section: Int, CaseIterable {
-        case quickAdd = 0
+        case profile
+        case grid
+        case history
+        case development
     }
-
-    private enum QuickAddItem: Int, CaseIterable {
-        case feeding
-        case sleep
-        case diaper
-        case growth
-        case vaccination
-        case doctorVisit
-        case historyOfIllness
-
+    fileprivate enum GridItem: Int, CaseIterable {
+        case feeding, sleep, diaper, growth, vaccination, doctorVisit
         var title: String {
             switch self {
-            case .feeding: return "Feeding"
-            case .sleep: return "Sleep"
-            case .diaper: return "Diapers"
-            case .growth: return "Growth"
-            case .vaccination: return "Vaccination"
-            case .doctorVisit: return "Doctor Visit"
-            case .historyOfIllness: return "History of illness"
+            case .feeding:      return "FEEDING"
+            case .sleep:        return "SLEEP"
+            case .diaper:       return "DIAPERS"
+            case .growth:       return "GROWTH"
+            case .vaccination:  return "VACCINATION"
+            case .doctorVisit:  return "DOCTOR VISIT"
             }
         }
-
         var iconName: String {
             switch self {
-            case .feeding: return "fork.knife"
-            case .sleep: return "moon"
-            case .diaper: return "figure.child.circle"
-            case .growth: return "ruler"
-            case .vaccination: return "syringe"
-            case .doctorVisit: return "stethoscope"
-            case .historyOfIllness: return "heart.text.square"
+            case .feeding:      return "fork.knife"
+            case .sleep:        return "moon"
+            case .diaper:       return "figure.child"
+            case .growth:       return "ruler"
+            case .vaccination:  return "shield"
+            case .doctorVisit:  return "stethoscope"
             }
         }
-
-        var backgroundColor: UIColor {
+        var cardColor: UIColor {
             switch self {
-            case .feeding: return .feedingViewColor
-            case .sleep: return .sleepViewColor
-            case .diaper: return .diaperViewColor
-            case .growth: return .growthViewColor
-            case .vaccination: return .systemTeal
-            case .doctorVisit: return .growthViewColor
-            case .historyOfIllness: return .growthViewColor
+            case .feeding:      return UIColor(hexString: "#e8f5f0")
+            case .sleep:        return UIColor(hexString: "#fce8ec")
+            case .diaper:       return UIColor(hexString: "#e8f5ee")
+            case .growth:       return UIColor(hexString: "#c5d8dc")
+            case .vaccination:  return UIColor.systemBackground
+            case .doctorVisit:  return UIColor.systemBackground
+            }
+        }
+        var iconTint: UIColor {
+            switch self {
+            case .feeding:      return UIColor(hexString: "#6aab90")
+            case .sleep:        return UIColor(hexString: "#e07a8a")
+            case .diaper:       return UIColor(hexString: "#5a9e72")
+            case .growth:       return UIColor(hexString: "#4a7a88")
+            case .vaccination:  return UIColor(hexString: "#7a8a9a")
+            case .doctorVisit:  return UIColor(hexString: "#7a8a9a")
+            }
+        }
+        var iconBg: UIColor {
+            switch self {
+            case .feeding:      return UIColor(hexString: "#6aab90").withAlphaComponent(0.18)
+            case .sleep:        return UIColor(hexString: "#e07a8a").withAlphaComponent(0.18)
+            case .diaper:       return UIColor(hexString: "#5a9e72").withAlphaComponent(0.18)
+            case .growth:       return UIColor.white.withAlphaComponent(0.5)
+            case .vaccination:  return UIColor(hexString: "#7a8a9a").withAlphaComponent(0.12)
+            case .doctorVisit:  return UIColor(hexString: "#7a8a9a").withAlphaComponent(0.12)
             }
         }
     }
-
-    // MARK: - Header
-
-    private lazy var babyButton: UIButton = {
-        let view = UIButton(type: .system)
-        view.backgroundColor = .feedingViewColor.withAlphaComponent(0.8)
-        view.setImage(UIImage(systemName: "person"), for: .normal)
-        view.tintColor = .white
-        view.makeRoundCorners(33)
-        view.clipsToBounds = true
-        view.addTarget(self, action: #selector(pressBabyButton), for: .touchUpInside)
-        return view
+    // MARK: - UI
+    private lazy var scrollView: UIScrollView = {
+        let v = UIScrollView()
+        v.backgroundColor = .clear
+        v.showsVerticalScrollIndicator = false
+        v.alwaysBounceVertical = true
+        return v
     }()
-
-    private lazy var yourBabyLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.text = "Your Baby"
-        view.textAlignment = .left
-        view.font = UIFont.preferredFont(forTextStyle: .title1)
-        view.textColor = .black
-        return view
+    private lazy var contentView = UIView()
+    // Profile header
+    private lazy var profileContainer: UIView = {
+        let v = UIView()
+        v.backgroundColor = .clear
+        let tap = UITapGestureRecognizer(target: self, action: #selector(profileTapped))
+        v.addGestureRecognizer(tap)
+        v.isUserInteractionEnabled = true
+        return v
     }()
-
-    private lazy var babyInfoLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.text = "Set up baby profile in Setting"
-        view.textAlignment = .left
-        view.font = UIFont.preferredFont(forTextStyle: .body)
-        view.textColor = .gray
-        return view
+    private lazy var photoView: UIButton = {
+        let v = UIButton(type: .custom)
+        v.backgroundColor = UIColor(hexString: "#c5d8dc")
+        v.setImage(UIImage(systemName: "person.fill"), for: .normal)
+        v.tintColor = .white
+        v.layer.cornerRadius = 33 * Constraint.yCoeff
+        v.clipsToBounds = true
+        v.imageView?.contentMode = .scaleAspectFill
+        v.addTarget(self, action: #selector(profileTapped), for: .touchUpInside)
+        return v
     }()
-
-    private lazy var headerContainer: UIView = {
-        let view = UIView()
-        view.backgroundColor = .clear
-        return view
+    private lazy var heartBadge: UIView = {
+        let v = UIView()
+        v.backgroundColor = UIColor(hexString: "#e07a8a")
+        v.layer.cornerRadius = 11 * Constraint.yCoeff
+        v.clipsToBounds = true
+        let img = UIImageView(image: UIImage(systemName: "heart.fill"))
+        img.tintColor = .white
+        img.contentMode = .scaleAspectFit
+        v.addSubview(img)
+        img.snp.makeConstraints { $0.center.equalToSuperview(); $0.size.equalTo(12 * Constraint.yCoeff) }
+        return v
     }()
-
-    // MARK: - Collection view
-
-    private lazy var collectionView: UICollectionView = {
-        let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = .vertical
-        layout.minimumLineSpacing = 10
-        layout.minimumInteritemSpacing = 0
-        layout.sectionInset = UIEdgeInsets(top: 0, left: 10, bottom: 20, right: 10)
-        let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        cv.backgroundColor = .clear
-        cv.delegate = self
-        cv.dataSource = self
-        cv.register(MainActionCardCell.self, forCellWithReuseIdentifier: MainActionCardCell.reuseId)
-        cv.register(
-            UICollectionReusableView.self,
-            forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
-            withReuseIdentifier: "SectionHeader"
-        )
-        return cv
+    private lazy var nameLabel: UILabel = {
+        let v = UILabel()
+        v.font = .systemFont(ofSize: 28, weight: .bold)
+        v.textColor = UIColor(hexString: "#222222")
+        return v
     }()
-
-    // MARK: - Overlays (feeding / diaper modals)
-
-    private lazy var feedingView: FeedingView = {
-        let view = FeedingView()
-        view.isHidden = true
-        view.onTapCloseButton = { [weak self] in
-            guard let self = self else { return }
-            UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut]) {
-                self.feedingView.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
-            } completion: { _ in
-                self.feedingView.isHidden = true
-            }
+    private lazy var ageLabel: UILabel = {
+        let v = UILabel()
+        v.font = .systemFont(ofSize: 15, weight: .regular)
+        v.textColor = UIColor(hexString: "#888888")
+        return v
+    }()
+    // Grid
+    private lazy var gridContainer: UIView = UIView()
+    // History row
+    private lazy var historyCard: UIView = {
+        let v = UIView()
+        v.backgroundColor = .systemBackground
+        v.layer.cornerRadius = 16
+        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.shadowOpacity = 0.04
+        v.layer.shadowRadius = 6
+        v.layer.shadowOffset = CGSize(width: 0, height: 2)
+        let tap = UITapGestureRecognizer(target: self, action: #selector(historyTapped))
+        v.addGestureRecognizer(tap)
+        v.isUserInteractionEnabled = true
+        return v
+    }()
+    private lazy var historyIconBg: UIView = {
+        let v = UIView()
+        v.backgroundColor = UIColor(hexString: "#7a8a9a").withAlphaComponent(0.12)
+        v.layer.cornerRadius = 20
+        return v
+    }()
+    private lazy var historyIconView: UIImageView = {
+        let v = UIImageView(image: UIImage(systemName: "star.square"))
+        v.tintColor = UIColor(hexString: "#7a8a9a")
+        v.contentMode = .scaleAspectFit
+        return v
+    }()
+    private lazy var historyTopLabel: UILabel = {
+        let v = UILabel()
+        v.text = "HISTORY"
+        v.font = .systemFont(ofSize: 11, weight: .semibold)
+        v.textColor = UIColor(hexString: "#888888")
+        return v
+    }()
+    private lazy var historyBottomLabel: UILabel = {
+        let v = UILabel()
+        v.text = "No active issues"
+        v.font = .systemFont(ofSize: 16, weight: .semibold)
+        v.textColor = UIColor(hexString: "#222222")
+        return v
+    }()
+    private lazy var historyChevron: UIImageView = {
+        let v = UIImageView(image: UIImage(systemName: "chevron.right"))
+        v.tintColor = UIColor(hexString: "#aaaaaa")
+        v.contentMode = .scaleAspectFit
+        return v
+    }()
+    // Development section
+    private lazy var developmentTitleLabel: UILabel = {
+        let v = UILabel()
+        v.text = "Development"
+        v.font = .systemFont(ofSize: 22, weight: .bold)
+        v.textColor = UIColor(hexString: "#222222")
+        return v
+    }()
+    private lazy var milestoneCard: UIView = {
+        let v = UIView()
+        v.backgroundColor = .systemBackground
+        v.layer.cornerRadius = 20
+        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.shadowOpacity = 0.05
+        v.layer.shadowRadius = 8
+        v.layer.shadowOffset = CGSize(width: 0, height: 2)
+        return v
+    }()
+    private lazy var milestoneTitleLabel: UILabel = {
+        let v = UILabel()
+        v.text = "Next Milestone"
+        v.font = .systemFont(ofSize: 22, weight: .bold)
+        v.textColor = UIColor(hexString: "#222222")
+        return v
+    }()
+    private lazy var milestoneSubtitleLabel: UILabel = {
+        let v = UILabel()
+        v.text = "Sitting without support"
+        v.font = .systemFont(ofSize: 14, weight: .regular)
+        v.textColor = UIColor(hexString: "#888888")
+        return v
+    }()
+    private lazy var progressBadge: UIView = {
+        let v = UIView()
+        v.backgroundColor = UIColor(hexString: "#6aab90")
+        v.layer.cornerRadius = 12
+        let lbl = UILabel()
+        lbl.text = "80% Progress"
+        lbl.font = .systemFont(ofSize: 12, weight: .semibold)
+        lbl.textColor = .white
+        v.addSubview(lbl)
+        lbl.snp.makeConstraints { $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 4, left: 10, bottom: 4, right: 10)) }
+        return v
+    }()
+    private lazy var progressBar: UIView = {
+        let bg = UIView()
+        bg.backgroundColor = UIColor(hexString: "#e0e0e0")
+        bg.layer.cornerRadius = 4
+        let fill = UIView()
+        fill.backgroundColor = UIColor(hexString: "#6aab90")
+        fill.layer.cornerRadius = 4
+        bg.addSubview(fill)
+        fill.snp.makeConstraints {
+            $0.leading.top.bottom.equalToSuperview()
+            $0.width.equalToSuperview().multipliedBy(0.8)
         }
-        return view
+        return bg
     }()
-
-    private lazy var diaper: DiaperView = {
-        let view = DiaperView()
-        view.isHidden = true
-        view.onTapCloseButton = { [weak self] in
-            guard let self = self else { return }
-            UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut]) {
-                self.diaper.transform = CGAffineTransform(translationX: 0, y: self.view.bounds.height)
-            } completion: { _ in
-                self.diaper.isHidden = true
-            }
-        }
-        return view
-    }()
-
+    // MARK: - Grid card views (keep reference to update values)
+    private var gridCards: [GridItem: HomeGridCard] = [:]
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .viewsBackGourdColor
+        view.backgroundColor = UIColor(hexString: "#f0f2f5")
         setupUI()
         setupConstraints()
     }
-
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
         applyBabyProfile()
-        collectionView.reloadData()
+        updateCardValues()
     }
-
+    // MARK: - Setup
+    private func setupUI() {
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        // Profile
+        contentView.addSubview(profileContainer)
+        profileContainer.addSubview(photoView)
+        profileContainer.addSubview(heartBadge)
+        profileContainer.addSubview(nameLabel)
+        profileContainer.addSubview(ageLabel)
+        // Grid
+        contentView.addSubview(gridContainer)
+        buildGrid()
+        // History
+        contentView.addSubview(historyCard)
+        historyCard.addSubview(historyIconBg)
+        historyIconBg.addSubview(historyIconView)
+        historyCard.addSubview(historyTopLabel)
+        historyCard.addSubview(historyBottomLabel)
+        historyCard.addSubview(historyChevron)
+        // Development
+        contentView.addSubview(developmentTitleLabel)
+        contentView.addSubview(milestoneCard)
+        milestoneCard.addSubview(milestoneTitleLabel)
+        milestoneCard.addSubview(milestoneSubtitleLabel)
+        milestoneCard.addSubview(progressBadge)
+        milestoneCard.addSubview(progressBar)
+    }
+    private func buildGrid() {
+        // 2-column grid: feeding/sleep, diaper/growth, vaccination/doctorVisit
+        let pairs: [(GridItem, GridItem)] = [
+            (.feeding, .sleep),
+            (.diaper, .growth),
+            (.vaccination, .doctorVisit)
+        ]
+        var lastRow: UIView? = nil
+        for (left, right) in pairs {
+            let leftCard = HomeGridCard()
+            leftCard.configure(item: left, valueText: "—")
+            leftCard.onTap = { [weak self] in self?.handleTap(left) }
+            let rightCard = HomeGridCard()
+            rightCard.configure(item: right, valueText: "—")
+            rightCard.onTap = { [weak self] in self?.handleTap(right) }
+            gridCards[left] = leftCard
+            gridCards[right] = rightCard
+            gridContainer.addSubview(leftCard)
+            gridContainer.addSubview(rightCard)
+            let topAnchor = lastRow?.snp.bottom ?? gridContainer.snp.top
+            let offset: CGFloat = lastRow == nil ? 0 : 12 * Constraint.xCoeff
+            leftCard.snp.makeConstraints {
+                $0.top.equalTo(topAnchor).offset(offset)
+                $0.leading.equalToSuperview()
+                $0.width.equalToSuperview().multipliedBy(0.5).offset(-6)
+                $0.height.equalTo(leftCard.snp.width).multipliedBy(0.95)
+            }
+            rightCard.snp.makeConstraints {
+                $0.top.equalTo(leftCard)
+                $0.trailing.equalToSuperview()
+                $0.width.equalTo(leftCard)
+                $0.height.equalTo(leftCard)
+            }
+            lastRow = leftCard
+        }
+        if let lastRow = lastRow {
+            gridContainer.snp.makeConstraints {
+                $0.bottom.equalTo(lastRow.snp.bottom)
+            }
+        }
+    }
+    private func setupConstraints() {
+        scrollView.snp.makeConstraints { $0.edges.equalTo(view.safeAreaLayoutGuide) }
+        contentView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+            $0.width.equalTo(scrollView)
+        }
+        let pad: CGFloat = 20 * Constraint.yCoeff
+        // Profile
+        profileContainer.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(pad)
+        }
+        photoView.snp.makeConstraints {
+            $0.leading.top.bottom.equalToSuperview()
+            $0.width.height.equalTo(66 * Constraint.yCoeff)
+        }
+        heartBadge.snp.makeConstraints {
+            $0.trailing.equalTo(photoView).offset(4)
+            $0.bottom.equalTo(photoView).offset(4)
+            $0.width.height.equalTo(22 * Constraint.yCoeff)
+        }
+        nameLabel.snp.makeConstraints {
+            $0.leading.equalTo(photoView.snp.trailing).offset(14 * Constraint.yCoeff)
+            $0.top.equalTo(photoView).offset(8 * Constraint.xCoeff)
+        }
+        ageLabel.snp.makeConstraints {
+            $0.leading.equalTo(nameLabel)
+            $0.top.equalTo(nameLabel.snp.bottom).offset(4 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().offset(-8 * Constraint.xCoeff)
+        }
+        // Grid
+        gridContainer.snp.makeConstraints {
+            $0.top.equalTo(profileContainer.snp.bottom).offset(24 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(pad)
+        }
+        // History card
+        historyCard.snp.makeConstraints {
+            $0.top.equalTo(gridContainer.snp.bottom).offset(12 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(pad)
+            $0.height.equalTo(70 * Constraint.xCoeff)
+        }
+        historyIconBg.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(40 * Constraint.yCoeff)
+        }
+        historyIconView.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.width.height.equalTo(20 * Constraint.yCoeff)
+        }
+        historyTopLabel.snp.makeConstraints {
+            $0.leading.equalTo(historyIconBg.snp.trailing).offset(12 * Constraint.yCoeff)
+            $0.top.equalToSuperview().offset(16 * Constraint.xCoeff)
+        }
+        historyBottomLabel.snp.makeConstraints {
+            $0.leading.equalTo(historyTopLabel)
+            $0.top.equalTo(historyTopLabel.snp.bottom).offset(2 * Constraint.xCoeff)
+        }
+        historyChevron.snp.makeConstraints {
+            $0.trailing.equalToSuperview().offset(-16 * Constraint.yCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.equalTo(8 * Constraint.yCoeff)
+            $0.height.equalTo(14 * Constraint.yCoeff)
+        }
+        // Development
+        developmentTitleLabel.snp.makeConstraints {
+            $0.top.equalTo(historyCard.snp.bottom).offset(28 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(pad)
+        }
+        milestoneCard.snp.makeConstraints {
+            $0.top.equalTo(developmentTitleLabel.snp.bottom).offset(12 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(pad)
+            $0.bottom.equalToSuperview().offset(-32 * Constraint.xCoeff)
+        }
+        milestoneTitleLabel.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(20 * Constraint.yCoeff)
+        }
+        milestoneSubtitleLabel.snp.makeConstraints {
+            $0.top.equalTo(milestoneTitleLabel.snp.bottom).offset(4 * Constraint.xCoeff)
+            $0.leading.equalTo(milestoneTitleLabel)
+        }
+        progressBadge.snp.makeConstraints {
+            $0.centerY.equalTo(milestoneTitleLabel)
+            $0.trailing.equalToSuperview().offset(-20 * Constraint.yCoeff)
+        }
+        progressBar.snp.makeConstraints {
+            $0.top.equalTo(milestoneSubtitleLabel.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(20 * Constraint.yCoeff)
+            $0.height.equalTo(8)
+            $0.bottom.equalToSuperview().offset(-20 * Constraint.xCoeff)
+        }
+    }
+    // MARK: - Data
     private func applyBabyProfile() {
         let name = BabyProfileStore.loadName()
         let birthday = BabyProfileStore.loadBirthday()
         let photo = BabyProfileStore.loadPhoto()
-
-        if let name, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            yourBabyLabel.text = name
-        } else {
-            yourBabyLabel.text = "Your Baby"
-        }
-
-        if let birthday {
-            babyInfoLabel.text = ageText(from: birthday)
-        } else {
-            babyInfoLabel.text = "Set up baby profile in Setting"
-        }
-
+        nameLabel.text = name?.isEmpty == false ? name : "Your Baby"
+        ageLabel.text = birthday.map { ageText(from: $0) } ?? "Set up profile in Settings"
         if let photo {
-            babyButton.setBackgroundImage(photo, for: .normal)
-            babyButton.setImage(nil, for: .normal)
-            babyButton.backgroundColor = .clear
-            babyButton.imageView?.contentMode = .scaleAspectFill
-            babyButton.contentHorizontalAlignment = .fill
-            babyButton.contentVerticalAlignment = .fill
-            babyButton.clipsToBounds = true
+            photoView.setBackgroundImage(photo, for: .normal)
+            photoView.setImage(nil, for: .normal)
+            photoView.contentHorizontalAlignment = .fill
+            photoView.contentVerticalAlignment = .fill
+            photoView.imageView?.contentMode = .scaleAspectFill
         } else {
-            babyButton.setBackgroundImage(nil, for: .normal)
-            babyButton.setImage(UIImage(systemName: "person"), for: .normal)
-            babyButton.tintColor = .white
-            babyButton.backgroundColor = .feedingViewColor.withAlphaComponent(0.8)
-            babyButton.contentHorizontalAlignment = .center
-            babyButton.contentVerticalAlignment = .center
+            photoView.setBackgroundImage(nil, for: .normal)
+            photoView.setImage(UIImage(systemName: "person.fill"), for: .normal)
+            photoView.tintColor = .white
+            photoView.backgroundColor = UIColor(hexString: "#c5d8dc")
         }
     }
-
+    private func updateCardValues() {
+        let cutoff = Date().addingTimeInterval(-24 * 60 * 60)
+        let feedingCount = FeedingLogStore.loadEntries()
+            .filter { ($0.savedAtEpochSeconds ?? 0) >= cutoff.timeIntervalSince1970 }.count
+        let sleepMins = SleepSessionStore.load().reduce(0) { acc, s in
+            let start = max(s.start, cutoff)
+            let end = min(s.end, Date())
+            return acc + max(0, Int(end.timeIntervalSince(start) / 60))
+        }
+        let diaperCount = DiaperLogStore.load().filter { $0.date >= cutoff }.count
+        let data = GrowthComparisonStore.loadOrMigrate()
+        let heightText: String = {
+            if let h = data.babyHeightCm, h > 0 {
+                return h == floor(h) ? "\(Int(h)) cm" : String(format: "%.1f cm", h)
+            }
+            return "—"
+        }()
+        let vacCount = VisitReminderStore.load(kind: .vaccination).count
+        let drCount  = VisitReminderStore.load(kind: .doctorVisit).count
+        let sleepText: String = {
+            let h = sleepMins / 60; let m = sleepMins % 60
+            return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+        }()
+        gridCards[.feeding]?.updateValue(feedingCount == 0 ? "0 times" : "\(feedingCount) times today")
+        gridCards[.sleep]?.updateValue(sleepMins == 0 ? "0m" : sleepText)
+        gridCards[.diaper]?.updateValue(diaperCount == 0 ? "0 changes" : "\(diaperCount) changes")
+        gridCards[.growth]?.updateValue(heightText)
+        gridCards[.vaccination]?.updateValue(vacCount == 0 ? "Up to date" : "\(vacCount) upcoming")
+        gridCards[.doctorVisit]?.updateValue(drCount == 0 ? "None" : "Next upcoming")
+    }
     private func ageText(from birthday: Date, now: Date = Date()) -> String {
         let cal = Calendar.current
-        let start = cal.startOfDay(for: birthday)
-        let end = cal.startOfDay(for: now)
-        guard end >= start else { return "" }
-
-        let comps = cal.dateComponents([.year, .month, .day], from: start, to: end)
-        let years = max(0, comps.year ?? 0)
-        let months = max(0, comps.month ?? 0)
-        let days = max(0, comps.day ?? 0)
-
-        if years == 0 && months == 0 {
-            return "\(days) days"
-        }
-        if years == 0 {
-            return "\(months) months \(days) days"
-        }
-        let weeks = days / 7
-        return "\(years) years \(months) months \(weeks) weeks"
+        let comps = cal.dateComponents([.year, .month, .day],
+                                       from: cal.startOfDay(for: birthday),
+                                       to: cal.startOfDay(for: now))
+        let y = max(0, comps.year ?? 0)
+        let m = max(0, comps.month ?? 0)
+        let d = max(0, comps.day ?? 0)
+        if y == 0 && m == 0 { return "\(d) days" }
+        if y == 0 { return "\(m) months \(d) days" }
+        return "\(y) years \(m) months \(d / 7) weeks"
     }
-
-    private func setupUI() {
-        view.addSubview(headerContainer)
-        headerContainer.addSubview(babyButton)
-        headerContainer.addSubview(yourBabyLabel)
-        headerContainer.addSubview(babyInfoLabel)
-        view.addSubview(collectionView)
-        view.addSubview(feedingView)
-        view.addSubview(diaper)
+    // MARK: - Actions
+    @objc private func profileTapped() {
+        tabBarController?.selectedIndex = 4
     }
-
-    private func setupConstraints() {
-        headerContainer.snp.makeConstraints { make in
-            make.top.equalTo(view)
-            make.leading.trailing.equalToSuperview()
-        }
-
-        babyButton.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(20 * Constraint.yCoeff)
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(12 * Constraint.xCoeff)
-            make.width.equalTo(66 * Constraint.yCoeff)
-            make.height.equalTo(66 * Constraint.xCoeff)
-        }
-
-        yourBabyLabel.snp.makeConstraints { make in
-            make.bottom.equalTo(babyButton.snp.centerY).offset(-2 * Constraint.xCoeff)
-            make.leading.equalTo(babyButton.snp.trailing).offset(20 * Constraint.yCoeff)
-        }
-
-        babyInfoLabel.snp.makeConstraints { make in
-            make.top.equalTo(babyButton.snp.centerY).offset(2 * Constraint.xCoeff)
-            make.leading.equalTo(babyButton.snp.trailing).offset(20 * Constraint.yCoeff)
-        }
-
-        headerContainer.snp.makeConstraints { make in
-            make.bottom.equalTo(babyInfoLabel.snp.bottom).offset(16 * Constraint.xCoeff)
-        }
-
-        collectionView.snp.makeConstraints { make in
-            make.top.equalTo(headerContainer.snp.bottom)
-            make.leading.trailing.bottom.equalToSuperview()
-        }
-
-        feedingView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-
-        diaper.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-        diaper.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
+    @objc private func historyTapped() {
+        navigationController?.pushViewController(HistoryOfIllnessViewController(), animated: true)
     }
-
-    private func switchToTab(index: Int) {
-        guard let tabBar = tabBarController, index >= 0, index < (tabBar.viewControllers?.count ?? 0) else { return }
-        tabBar.selectedIndex = index
-        if let nav = tabBar.viewControllers?[index] as? UINavigationController {
-            nav.popToRootViewController(animated: false)
-        }
-    }
-
-    @objc private func pressBabyButton() {
-        switchToTab(index: 4)
-    }
-
-    private func handleQuickAddTap(_ item: QuickAddItem) {
+    private func handleTap(_ item: GridItem) {
         switch item {
-        case .feeding:
-            switchToTab(index: 1)
-        case .sleep:
-            switchToTab(index: 2)
-        case .diaper:
-            switchToTab(index: 3)
-        case .growth:
-            let vc = GrowthViewController()
-            navigationController?.pushViewController(vc, animated: true)
-        case .vaccination:
-            navigationController?.pushViewController(VaccinationViewController(), animated: true)
-        case .doctorVisit:
-            navigationController?.pushViewController(DoctorVisitViewController(), animated: true)
-        case .historyOfIllness:
-            navigationController?.pushViewController(HistoryOfIllnessViewController(), animated: true)
-        }
-    }
-
-    // MARK: - Stats for main screen
-
-    private func feedingCount() -> Int {
-        let cutoff = Date().addingTimeInterval(-24 * 60 * 60).timeIntervalSince1970
-        return FeedingLogStore.loadEntries().filter { ($0.savedAtEpochSeconds ?? 0) >= cutoff }.count
-    }
-
-    private func sleepMinutes() -> Int {
-        let cutoff = Date().addingTimeInterval(-24 * 60 * 60)
-        let now = Date()
-        return SleepSessionStore.load().reduce(0) { partial, session in
-            let start = max(session.start, cutoff)
-            let end = min(session.end, now)
-            let seconds = max(0, end.timeIntervalSince(start))
-            return partial + Int(seconds / 60)
-        }
-    }
-
-    private func diaperCount() -> Int {
-        let cutoff = Date().addingTimeInterval(-24 * 60 * 60)
-        return DiaperLogStore.load().filter { $0.date >= cutoff }.count
-    }
-
-    private func currentHeightText() -> String {
-        let data = GrowthComparisonStore.loadOrMigrate()
-        if let h = data.babyHeightCm, h > 0 {
-            if h == floor(h) { return "\(Int(h)) cm" }
-            return String(format: "%.1f cm", h)
-        }
-        return "—"
-    }
-
-    private func vaccinationCount() -> Int {
-        VisitReminderStore.load(kind: .vaccination).count
-    }
-
-    private func doctorVisitCount() -> Int {
-        VisitReminderStore.load(kind: .doctorVisit).count
-    }
-
-    private func historyOfIllnessCount() -> Int {
-        // No persistence yet for illness history.
-        0
-    }
-
-    private func quickAddValueText(for item: QuickAddItem) -> String? {
-        switch item {
-        case .feeding:
-            return "\(feedingCount())"
-        case .sleep:
-            return "\(sleepMinutes())m"
-        case .diaper:
-            return "\(diaperCount())"
-        case .growth:
-            return currentHeightText()
-        case .vaccination:
-            return "\(vaccinationCount())"
-        case .doctorVisit:
-            return "\(doctorVisitCount())"
-        case .historyOfIllness:
-            return "\(historyOfIllnessCount())"
+        case .feeding:      tabBarController?.selectedIndex = 1
+        case .sleep:        tabBarController?.selectedIndex = 2
+        case .diaper:       tabBarController?.selectedIndex = 3
+        case .growth:       navigationController?.pushViewController(GrowthViewController(), animated: true)
+        case .vaccination:  navigationController?.pushViewController(VaccinationViewController(), animated: true)
+        case .doctorVisit:  navigationController?.pushViewController(DoctorVisitViewController(), animated: true)
         }
     }
 }
-
-// MARK: - UICollectionViewDataSource, UICollectionViewDelegateFlowLayout
-
-extension MainViewController: UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout {
-
-    func numberOfSections(in collectionView: UICollectionView) -> Int {
-        Section.allCases.count
-    }
-
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        switch Section(rawValue: section) {
-        case .quickAdd: return QuickAddItem.allCases.count
-        case .none: return 0
+// MARK: - HomeGridCard
+final class HomeGridCard: UIView {
+    var onTap: (() -> Void)?
+    private let iconBgView: UIView = {
+        let v = UIView()
+        v.layer.cornerRadius = 20
+        return v
+    }()
+    private let iconView: UIImageView = {
+        let v = UIImageView()
+        v.contentMode = .scaleAspectFit
+        return v
+    }()
+    private let topLabel: UILabel = {
+        let v = UILabel()
+        v.font = .systemFont(ofSize: 11, weight: .semibold)
+        v.textColor = UIColor(hexString: "#888888")
+        return v
+    }()
+    private let valueLabel: UILabel = {
+        let v = UILabel()
+        v.font = .systemFont(ofSize: 18, weight: .bold)
+        v.textColor = UIColor(hexString: "#222222")
+        v.adjustsFontSizeToFitWidth = true
+        v.minimumScaleFactor = 0.7
+        return v
+    }()
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .systemBackground
+        layer.cornerRadius = 20
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOpacity = 0.05
+        layer.shadowRadius = 6
+        layer.shadowOffset = CGSize(width: 0, height: 2)
+        addSubview(iconBgView)
+        iconBgView.addSubview(iconView)
+        addSubview(topLabel)
+        addSubview(valueLabel)
+        iconBgView.snp.makeConstraints {
+            $0.top.leading.equalToSuperview().inset(16 * Constraint.yCoeff)
+            $0.width.height.equalTo(40 * Constraint.yCoeff)
         }
-    }
-
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        switch Section(rawValue: indexPath.section) {
-        case .quickAdd:
-            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: MainActionCardCell.reuseId, for: indexPath) as! MainActionCardCell
-            let item = QuickAddItem(rawValue: indexPath.item)!
-            cell.configure(
-                backgroundColor: item.backgroundColor,
-                icon: UIImage(systemName: item.iconName),
-                title: item.title,
-                valueText: quickAddValueText(for: item)
-            )
-            cell.onTap = { [weak self] in
-                self?.handleQuickAddTap(item)
-            }
-            return cell
-        case .none:
-            fatalError("Unexpected section")
+        iconView.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.width.height.equalTo(20 * Constraint.yCoeff)
         }
-    }
-
-    func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
-        guard kind == UICollectionView.elementKindSectionHeader, Section(rawValue: indexPath.section) == .quickAdd else {
-            let header = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "SectionHeader", for: indexPath)
-            header.subviews.forEach { $0.removeFromSuperview() }
-            return header
+        topLabel.snp.makeConstraints {
+            $0.top.equalTo(iconBgView.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
+            $0.trailing.lessThanOrEqualToSuperview().offset(-8 * Constraint.yCoeff)
         }
-        let header = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "SectionHeader", for: indexPath)
-        header.subviews.forEach { $0.removeFromSuperview() }
-        let label = UILabel()
-//        label.text = "Quick Add"
-        label.font = UIFont.preferredFont(forTextStyle: .title2)
-        label.textColor = .black
-        header.addSubview(label)
-        label.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(0)
-            make.centerY.equalToSuperview()
+        valueLabel.snp.makeConstraints {
+            $0.top.equalTo(topLabel.snp.bottom).offset(4 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
+            $0.trailing.lessThanOrEqualToSuperview().offset(-8 * Constraint.yCoeff)
+            $0.bottom.lessThanOrEqualToSuperview().offset(-14 * Constraint.xCoeff)
         }
-        return header
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+        addGestureRecognizer(tap)
+        isUserInteractionEnabled = true
     }
-
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let width = collectionView.bounds.width - 20
-        switch Section(rawValue: indexPath.section) {
-        case .quickAdd:
-            return CGSize(width: width, height: 70 * Constraint.xCoeff)
-        case .none:
-            return .zero
-        }
+    required init?(coder: NSCoder) { fatalError() }
+    fileprivate func configure(item: MainViewController.GridItem, valueText: String) {
+        backgroundColor = item.cardColor
+        iconBgView.backgroundColor = item.iconBg
+        iconView.image = UIImage(systemName: item.iconName)
+        iconView.tintColor = item.iconTint
+        topLabel.text = item.title
+        valueLabel.text = valueText
     }
-
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
-        guard Section(rawValue: section) == .quickAdd else {
-            return CGSize(width: 0, height: 0)
-        }
-        return CGSize(width: collectionView.bounds.width, height: 44)
+    func updateValue(_ text: String) {
+        valueLabel.text = text
     }
+    @objc private func tapped() { onTap?() }
 }
-
