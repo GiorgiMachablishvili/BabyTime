@@ -23,6 +23,74 @@ final class SleepViewController: UIViewController {
     private var activeStartDate: Date?
     private var liveTimer: Timer?
 
+    private lazy var elapsedLabel: UILabel = {
+        let l = UILabel()
+        l.font = .monospacedDigitSystemFont(ofSize: 32 * Constraint.yCoeff, weight: .bold)
+        l.textColor = UIColor(hexString: "#8b6dc4")
+        l.text = "0:00:00"
+        return l
+    }()
+
+    private lazy var startedAtLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 12 * Constraint.yCoeff, weight: .regular)
+        l.textColor = UIColor(hexString: "#999999")
+        return l
+    }()
+
+    private lazy var liveTimerCard: UIView = {
+        let v = UIView()
+        v.backgroundColor = UIColor(hexString: "#f0eef8")
+        v.layer.cornerRadius = 20 * Constraint.yCoeff
+        v.clipsToBounds = true
+        v.alpha = 0
+
+        let moonCircle = UIView()
+        moonCircle.backgroundColor = UIColor(hexString: "#8b6dc4")
+        moonCircle.layer.cornerRadius = 22 * Constraint.yCoeff
+        moonCircle.clipsToBounds = true
+
+        let moonIcon = UIImageView(image: UIImage(systemName: "moon.fill"))
+        moonIcon.tintColor = .white
+        moonIcon.contentMode = .scaleAspectFit
+        moonCircle.addSubview(moonIcon)
+        moonIcon.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.width.height.equalTo(20 * Constraint.yCoeff)
+        }
+
+        let sleepingLabel = UILabel()
+        sleepingLabel.text = "Sleeping"
+        sleepingLabel.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .semibold)
+        sleepingLabel.textColor = UIColor(hexString: "#444444")
+
+        v.addSubview(moonCircle)
+        v.addSubview(sleepingLabel)
+        v.addSubview(self.elapsedLabel)
+        v.addSubview(self.startedAtLabel)
+
+        moonCircle.snp.makeConstraints {
+            $0.leading.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(44 * Constraint.yCoeff)
+        }
+        sleepingLabel.snp.makeConstraints {
+            $0.leading.equalTo(moonCircle.snp.trailing).offset(14 * Constraint.xCoeff)
+            $0.top.equalToSuperview().inset(14 * Constraint.yCoeff)
+        }
+        self.elapsedLabel.snp.makeConstraints {
+            $0.leading.equalTo(sleepingLabel)
+            $0.top.equalTo(sleepingLabel.snp.bottom).offset(2 * Constraint.yCoeff)
+        }
+        self.startedAtLabel.snp.makeConstraints {
+            $0.leading.equalTo(sleepingLabel)
+            $0.top.equalTo(self.elapsedLabel.snp.bottom).offset(2 * Constraint.yCoeff)
+            $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
+        }
+
+        return v
+    }()
+
     // MARK: - Views
 
     private let headerView = SleepHeaderView()
@@ -89,6 +157,7 @@ final class SleepViewController: UIViewController {
     private func setupUI() {
         view.addSubview(headerView)
         view.addSubview(collectionView)
+        view.addSubview(liveTimerCard)
         view.addSubview(startButton)
         view.addSubview(logPastButton)
 
@@ -99,6 +168,10 @@ final class SleepViewController: UIViewController {
         collectionView.snp.makeConstraints {
             $0.top.equalTo(headerView.snp.bottom)
             $0.leading.trailing.bottom.equalToSuperview()
+        }
+        liveTimerCard.snp.makeConstraints {
+            $0.leading.trailing.equalToSuperview().inset(24 * Constraint.xCoeff)
+            $0.bottom.equalTo(startButton.snp.top).offset(-12 * Constraint.yCoeff)
         }
         startButton.snp.makeConstraints {
             $0.leading.trailing.equalToSuperview().inset(24 * Constraint.xCoeff)
@@ -209,7 +282,7 @@ final class SleepViewController: UIViewController {
         let cal = Calendar.current
         return sessions.filter { s in
             cal.isDate(s.start, inSameDayAs: selectedDate) || cal.isDate(s.end, inSameDayAs: selectedDate)
-        }.sorted { $0.start < $1.start }
+        }.sorted { $0.start > $1.start }
     }
 
     private func applySnapshot() {
@@ -244,12 +317,18 @@ final class SleepViewController: UIViewController {
 
     @objc private func startButtonTapped() {
         if activeStartDate == nil {
-            activeStartDate = Date()
-            selectedDate = Calendar.current.startOfDay(for: Date())
-            liveTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-                self?.refreshRingCell()
+            let now = Date()
+            activeStartDate = now
+            selectedDate = Calendar.current.startOfDay(for: now)
+            let tf = DateFormatter(); tf.dateFormat = "h:mm a"
+            startedAtLabel.text = "Started at \(tf.string(from: now))"
+            elapsedLabel.text = "0:00:00"
+            liveTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                self?.refreshLiveUI()
             }
             RunLoop.main.add(liveTimer!, forMode: .common)
+            UIView.animate(withDuration: 0.35) { self.liveTimerCard.alpha = 1 }
+            collectionView.contentInset.bottom = 210 * Constraint.yCoeff
         } else {
             guard let start = activeStartDate else { return }
             liveTimer?.invalidate(); liveTimer = nil
@@ -257,6 +336,9 @@ final class SleepViewController: UIViewController {
             sessions.insert(session, at: 0)
             SleepSessionStore.save(sessions)
             activeStartDate = nil
+            selectedDate = Calendar.current.startOfDay(for: start)
+            UIView.animate(withDuration: 0.25) { self.liveTimerCard.alpha = 0 }
+            collectionView.contentInset.bottom = 120 * Constraint.yCoeff
         }
         updateStartButton()
         applySnapshot()
@@ -280,7 +362,13 @@ final class SleepViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func refreshRingCell() {
+    private func refreshLiveUI() {
+        guard let start = activeStartDate else { return }
+        let elapsed = Date().timeIntervalSince(start)
+        let h = Int(elapsed / 3600)
+        let m = Int((elapsed.truncatingRemainder(dividingBy: 3600)) / 60)
+        let s = Int(elapsed.truncatingRemainder(dividingBy: 60))
+        elapsedLabel.text = String(format: "%d:%02d:%02d", h, m, s)
         var snap = dataSource.snapshot()
         if snap.itemIdentifiers(inSection: .ringStats).contains(Item.ringStats) {
             snap.reconfigureItems([Item.ringStats])
