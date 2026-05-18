@@ -59,6 +59,22 @@ class FeedingView: UIView {
         return view
     }()
 
+    private lazy var selectedTypeBadge: UIView = {
+        let v = UIView()
+        v.layer.cornerRadius = 22 * Constraint.yCoeff
+        v.clipsToBounds = true
+        v.isHidden = true
+        return v
+    }()
+
+    private lazy var selectedTypeBadgeLabel: UILabel = {
+        let l = UILabel()
+        l.font = UIFont.systemFont(ofSize: 17, weight: .bold)
+        l.textColor = .white
+        l.textAlignment = .center
+        return l
+    }()
+
     private lazy var timeButtonView: TimeButtonView = {
         let view = TimeButtonView()
         return view
@@ -99,7 +115,7 @@ class FeedingView: UIView {
             case .breast:
                 self.timeButtonView.isHidden = false
                 self.volumeButtonView.isHidden = true
-                self.feedingViewHeightConstraint?.update(offset: 550 * Constraint.xCoeff)
+                self.feedingViewHeightConstraint?.update(offset: 600 * Constraint.xCoeff)
                 self.notesTopToVolumeConstraint?.deactivate()
                 self.notesTopToTimeConstraint?.activate()
             case .bottle, .formula, .solid:
@@ -131,6 +147,8 @@ class FeedingView: UIView {
         feedingView.addSubview(scrollView)
         scrollView.addSubview(contentView)
         contentView.addSubview(feedingTypeView)
+        contentView.addSubview(selectedTypeBadge)
+        selectedTypeBadge.addSubview(selectedTypeBadgeLabel)
         contentView.addSubview(timeButtonView)
         contentView.addSubview(volumeButtonView)
         contentView.addSubview(notesOptionalView)
@@ -144,7 +162,7 @@ class FeedingView: UIView {
 
         feedingView.snp.remakeConstraints { make in
             make.leading.trailing.bottom.equalToSuperview()
-            self.feedingViewHeightConstraint = make.height.equalTo(550 * Constraint.xCoeff).constraint
+            self.feedingViewHeightConstraint = make.height.equalTo(600 * Constraint.xCoeff).constraint
         }
 
         addFeedingTitleLabel.snp.remakeConstraints { make in
@@ -173,10 +191,20 @@ class FeedingView: UIView {
             make.height.equalTo(100 * Constraint.xCoeff)
         }
 
+        selectedTypeBadge.snp.remakeConstraints { make in
+            make.top.equalTo(contentView).offset(28 * Constraint.xCoeff)
+            make.centerX.equalToSuperview()
+            make.height.equalTo(44 * Constraint.yCoeff)
+        }
+        selectedTypeBadgeLabel.snp.remakeConstraints { make in
+            make.top.bottom.equalToSuperview()
+            make.leading.trailing.equalToSuperview().inset(24 * Constraint.xCoeff)
+        }
+
         timeButtonView.snp.remakeConstraints { make in
             make.top.equalTo(feedingTypeView.snp.bottom).offset(20 * Constraint.xCoeff)
             make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(80 * Constraint.xCoeff)
+            make.height.equalTo(140 * Constraint.xCoeff)
         }
 
         volumeButtonView.snp.remakeConstraints { make in
@@ -189,7 +217,7 @@ class FeedingView: UIView {
             self.notesTopToTimeConstraint = make.top.equalTo(timeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
             self.notesTopToVolumeConstraint = make.top.equalTo(volumeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
             make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(80 * Constraint.xCoeff)
+            make.height.equalTo(140 * Constraint.xCoeff)
         }
         notesTopToVolumeConstraint?.deactivate()
 
@@ -254,7 +282,9 @@ class FeedingView: UIView {
     }
 
     private func currentVolumeText() -> String? {
-        guard currentFeedingType != .breast else { return nil }
+        if currentFeedingType == .breast {
+            return timeButtonView.selectedDurationText
+        }
         return volumeButtonView.selectedVolumeText
     }
 
@@ -276,5 +306,70 @@ class FeedingView: UIView {
 
     @objc private func closeButtonTapped() {
         self.onTapCloseButton?()
+    }
+
+    func configure(initialType: FeedingTypeView.FeedingType, showTypePicker: Bool = true) {
+        timeButtonView.reset()
+        volumeButtonView.reset()
+        currentFeedingType = initialType
+
+        feedingTypeView.isHidden = !showTypePicker
+        feedingTypeView.setSelectedType(initialType)
+
+        selectedTypeBadge.isHidden = showTypePicker
+        if !showTypePicker {
+            switch initialType {
+            case .breast:
+                selectedTypeBadgeLabel.text = "Start Breast"
+                selectedTypeBadge.backgroundColor = UIColor(hexString: "#e07a5f")
+            case .bottle:
+                selectedTypeBadgeLabel.text = "Bottle"
+                selectedTypeBadge.backgroundColor = UIColor(hexString: "#9b7fd4")
+            case .formula:
+                selectedTypeBadgeLabel.text = "Formula"
+                selectedTypeBadge.backgroundColor = UIColor(hexString: "#4a9fc4")
+            case .solid:
+                selectedTypeBadgeLabel.text = "Solid"
+                selectedTypeBadge.backgroundColor = UIColor(hexString: "#5aac7c")
+            }
+        }
+
+        // Re-anchor input views depending on whether the type picker is visible
+        let topAnchor = showTypePicker ? feedingTypeView.snp.bottom : selectedTypeBadge.snp.bottom
+
+        timeButtonView.snp.remakeConstraints { make in
+            make.top.equalTo(topAnchor).offset(20 * Constraint.xCoeff)
+            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
+            make.height.equalTo(140 * Constraint.xCoeff)
+        }
+        volumeButtonView.snp.remakeConstraints { make in
+            make.top.equalTo(topAnchor).offset(20 * Constraint.xCoeff)
+            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
+            make.height.equalTo(140 * Constraint.xCoeff)
+        }
+        notesOptionalView.snp.remakeConstraints { make in
+            self.notesTopToTimeConstraint   = make.top.equalTo(timeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
+            self.notesTopToVolumeConstraint = make.top.equalTo(volumeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
+            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
+            make.height.equalTo(140 * Constraint.xCoeff)
+        }
+
+        let sheetHeight: CGFloat = showTypePicker ? 600 : 470
+
+        switch initialType {
+        case .breast:
+            timeButtonView.isHidden = false
+            volumeButtonView.isHidden = true
+            feedingViewHeightConstraint?.update(offset: sheetHeight * Constraint.xCoeff)
+            notesTopToVolumeConstraint?.deactivate()
+            notesTopToTimeConstraint?.activate()
+        case .bottle, .formula, .solid:
+            timeButtonView.isHidden = true
+            volumeButtonView.isHidden = false
+            feedingViewHeightConstraint?.update(offset: sheetHeight * Constraint.xCoeff)
+            notesTopToTimeConstraint?.deactivate()
+            notesTopToVolumeConstraint?.activate()
+        }
+        layoutIfNeeded()
     }
 }

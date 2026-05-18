@@ -68,4 +68,11 @@ final class FeedingSectionHeaderView: UICollectionReusableView {
         subtitleLabel.text = subtitle
         addButton.isHidden = !showsAddButton
     }
+
+    func configureSimple(title: String) {
+        titleLabel.text = title
+        subtitleLabel.text = ""
+        addButton.isHidden = true
+        titleLabel.font = .systemFont(ofSize: 16 * Constraint.yCoeff, weight: .bold)
+    }
 }

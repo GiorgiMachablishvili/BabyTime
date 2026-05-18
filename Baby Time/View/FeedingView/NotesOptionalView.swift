@@ -4,39 +4,39 @@ import SnapKit
 class NotesOptionalView: UIView {
 
     var notesText: String? {
-        notesTextField.text
+        let t = notesTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty || t == "" ? nil : t
     }
 
     private lazy var titleLabel: UILabel = {
-        let view = UILabel(frame: .zero)
+        let view = UILabel()
         view.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         view.textColor = .black
-        view.textAlignment = .center
-        view.text = "Notes (optional)"
+        view.textAlignment = .left
+        view.text = "Notes"
         return view
     }()
 
-    private lazy var notesTextField: UITextField = {
-        let view = UITextField(frame: .zero)
+    private lazy var notesTextView: UITextView = {
+        let view = UITextView()
         view.font = UIFont.systemFont(ofSize: 14, weight: .regular)
         view.textColor = .label
         view.backgroundColor = UIColor(white: 0.96, alpha: 1.0)
-        view.textAlignment = .left
-        let placeholder = NSAttributedString(string: "Add a note...", attributes: [
-            .foregroundColor: UIColor.black.withAlphaComponent(0.6),
-            .font: UIFont.systemFont(ofSize: 14, weight: .regular)
-        ])
-        view.attributedPlaceholder = placeholder
-        view.borderStyle = .none
+        view.textContainerInset = UIEdgeInsets(top: 12, left: 10, bottom: 12, right: 10)
         view.layer.cornerRadius = 10
         view.clipsToBounds = true
-        let leftPadding = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 0))
-        let rightPadding = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 0))
-        view.leftView = leftPadding
-        view.leftViewMode = .always
-        view.rightView = rightPadding
-        view.rightViewMode = .always
+        view.isScrollEnabled = false
+        view.delegate = self
         return view
+    }()
+
+    private let placeholderLabel: UILabel = {
+        let l = UILabel()
+        l.text = "Add a note..."
+        l.font = UIFont.systemFont(ofSize: 14, weight: .regular)
+        l.textColor = UIColor.black.withAlphaComponent(0.4)
+        l.isUserInteractionEnabled = false
+        return l
     }()
 
     override init(frame: CGRect) {
@@ -45,25 +45,33 @@ class NotesOptionalView: UIView {
         setupConstraints()
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    required init?(coder: NSCoder) { fatalError() }
 
     private func setupUI() {
         addSubview(titleLabel)
-        addSubview(notesTextField)
+        addSubview(notesTextView)
+        notesTextView.addSubview(placeholderLabel)
     }
 
     private func setupConstraints() {
-        titleLabel.snp.remakeConstraints { make in
-            make.top.equalTo(snp.top).offset(20 * Constraint.xCoeff)
-            make.leading.equalToSuperview()
+        titleLabel.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
+            $0.leading.equalToSuperview()
         }
+        notesTextView.snp.makeConstraints {
+            $0.top.equalTo(titleLabel.snp.bottom).offset(10 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
+            $0.height.equalTo(90 * Constraint.xCoeff)
+        }
+        placeholderLabel.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(12)
+            $0.leading.equalToSuperview().offset(14)
+        }
+    }
+}
 
-        notesTextField.snp.remakeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(10 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
-            make.height.equalTo(44 * Constraint.xCoeff)
-        }
+extension NotesOptionalView: UITextViewDelegate {
+    func textViewDidChange(_ textView: UITextView) {
+        placeholderLabel.isHidden = !textView.text.isEmpty
     }
 }

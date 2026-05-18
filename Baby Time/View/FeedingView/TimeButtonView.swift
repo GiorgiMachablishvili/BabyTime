@@ -4,176 +4,180 @@ import SnapKit
 class TimeButtonView: UIView {
 
     private let selectedColor = UIColor.pressButtonColor
-    private let normalColor = UIColor.buttonGayColor
+    private let normalColor   = UIColor.buttonGayColor
 
     private lazy var titleLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
-        view.textColor = .black
-        view.textAlignment = .center
-        view.text = "Duration (minutes)"
-        return view
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 14, weight: .semibold)
+        l.textColor = .black
+        l.text = "Duration (minutes)"
+        return l
     }()
 
-    private lazy var fiveMinutesButton: TimePillView = {
-        let view = TimePillView()
-        view.timeLabel.text = "5 min"
-        view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handlePillTap(_:)))
-        view.addGestureRecognizer(tap)
-        return view
+    // Row 1 — fixed presets
+    private let row1ScrollView: UIScrollView = {
+        let s = UIScrollView()
+        s.showsHorizontalScrollIndicator = false
+        s.alwaysBounceHorizontal = true
+        return s
+    }()
+    private let row1Stack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .horizontal
+        s.spacing = 8
+        s.alignment = .center
+        return s
     }()
 
-    private lazy var tenMinutesButton: TimePillView = {
-        let view = TimePillView()
-        view.timeLabel.text = "10 min"
-        view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handlePillTap(_:)))
-        view.addGestureRecognizer(tap)
-        return view
+    // Row 2 — custom pills + Other
+    private let row2ScrollView: UIScrollView = {
+        let s = UIScrollView()
+        s.showsHorizontalScrollIndicator = false
+        s.alwaysBounceHorizontal = true
+        return s
+    }()
+    private let row2Stack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .horizontal
+        s.spacing = 8
+        s.alignment = .center
+        return s
     }()
 
-    private lazy var fifteenMinutesButton: TimePillView = {
-        let view = TimePillView()
-        view.timeLabel.text = "15 min"
-        view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handlePillTap(_:)))
-        view.addGestureRecognizer(tap)
-        return view
-    }()
+    private lazy var min5  = makePill("5 min")
+    private lazy var min10 = makePill("10 min")
+    private lazy var min15 = makePill("15 min")
+    private lazy var min20 = makePill("20 min")
+    private lazy var min30 = makePill("30 min")
+    private lazy var otherPill = makePill("Other")
 
-    private lazy var twentyMinutesButton: TimePillView = {
-        let view = TimePillView()
-        view.timeLabel.text = "20 min"
-        view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handlePillTap(_:)))
-        view.addGestureRecognizer(tap)
-        return view
-    }()
+    private var allPills: [TimePillView] = []
+    private weak var selectedPill: TimePillView?
 
-    private lazy var thirtyMinutesButton: TimePillView = {
-        let view = TimePillView()
-        view.timeLabel.text = "30 min"
-        view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handlePillTap(_:)))
-        view.addGestureRecognizer(tap)
-        return view
-    }()
-
-
+    var selectedDurationText: String? { selectedPill?.timeLabel.text }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-
         setupUI()
-        setupConstraint()
-        applySelection(selected: fiveMinutesButton)
+        setupConstraints()
+
+        [min5, min10, min15, min20, min30].forEach { row1Stack.addArrangedSubview($0) }
+        row2Stack.addArrangedSubview(otherPill)
+
+        allPills = [min5, min10, min15, min20, min30, otherPill]
+        applySelection(selected: min5)
     }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func makePill(_ text: String) -> TimePillView {
+        let v = TimePillView()
+        v.timeLabel.text = text
+        v.backgroundColor = normalColor
+        v.isUserInteractionEnabled = true
+        v.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(pillTapped(_:))))
+        return v
     }
 
     private func setupUI() {
         addSubview(titleLabel)
-        addSubview(fiveMinutesButton)
-        addSubview(tenMinutesButton)
-        addSubview(fifteenMinutesButton)
-        addSubview(twentyMinutesButton)
-        addSubview(thirtyMinutesButton)
-        [fiveMinutesButton, tenMinutesButton, fifteenMinutesButton, twentyMinutesButton, thirtyMinutesButton].forEach { $0.backgroundColor = normalColor }
+        addSubview(row1ScrollView)
+        row1ScrollView.addSubview(row1Stack)
+        addSubview(row2ScrollView)
+        row2ScrollView.addSubview(row2Stack)
     }
 
-    private func setupConstraint() {
-        titleLabel.snp.remakeConstraints { make in
-            make.top.equalTo(snp.top).offset(20 * Constraint.xCoeff)
-            make.leading.equalToSuperview()
+    private func setupConstraints() {
+        titleLabel.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
+            $0.leading.equalToSuperview()
         }
-
-        fiveMinutesButton.snp.remakeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(10 * Constraint.xCoeff)
-            make.leading.equalTo(snp.leading).offset(10 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.xCoeff)
-            make.width.equalTo(60 * Constraint.yCoeff)
+        row1ScrollView.snp.makeConstraints {
+            $0.top.equalTo(titleLabel.snp.bottom).offset(10 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview()
+            $0.height.equalTo(40 * Constraint.xCoeff)
         }
-
-        tenMinutesButton.snp.remakeConstraints { make in
-            make.top.equalTo(fiveMinutesButton.snp.top)
-            make.leading.equalTo(fiveMinutesButton.snp.trailing).offset(5 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.xCoeff)
-            make.width.equalTo(60 * Constraint.yCoeff)
+        row1Stack.snp.makeConstraints {
+            $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10))
+            $0.height.equalTo(row1ScrollView)
         }
-
-        fifteenMinutesButton.snp.remakeConstraints { make in
-            make.top.equalTo(fiveMinutesButton.snp.top)
-            make.leading.equalTo(tenMinutesButton.snp.trailing).offset(5 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.xCoeff)
-            make.width.equalTo(60 * Constraint.yCoeff)
+        row2ScrollView.snp.makeConstraints {
+            $0.top.equalTo(row1ScrollView.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview()
+            $0.height.equalTo(40 * Constraint.xCoeff)
         }
-
-        twentyMinutesButton.snp.remakeConstraints { make in
-            make.top.equalTo(fiveMinutesButton.snp.top)
-            make.leading.equalTo(fifteenMinutesButton.snp.trailing).offset(5 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.xCoeff)
-            make.width.equalTo(60 * Constraint.yCoeff)
-        }
-
-        thirtyMinutesButton.snp.remakeConstraints { make in
-            make.top.equalTo(fiveMinutesButton.snp.top)
-            make.leading.equalTo(twentyMinutesButton.snp.trailing).offset(5 * Constraint.yCoeff)
-            make.height.equalTo(40 * Constraint.xCoeff)
-            make.width.equalTo(60 * Constraint.yCoeff)
+        row2Stack.snp.makeConstraints {
+            $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10))
+            $0.height.equalTo(row2ScrollView)
         }
     }
 
-    private func applySelection(selected: UIView) {
-        let buttons = [fiveMinutesButton, tenMinutesButton, fifteenMinutesButton, twentyMinutesButton, thirtyMinutesButton]
-        buttons.forEach { button in
-            let isSelected = (button === selected)
-            button.backgroundColor = isSelected ? selectedColor : normalColor
-            button.timeLabel.textColor = isSelected ? UIColor.labelWhiteColor : UIColor.pressButtonTitleColor
+    func reset() {
+        // Remove any custom pills from row2, keep only Other
+        row2Stack.arrangedSubviews.forEach {
+            if $0 !== otherPill {
+                row2Stack.removeArrangedSubview($0)
+                $0.removeFromSuperview()
+            }
+        }
+        allPills = [min5, min10, min15, min20, min30, otherPill]
+        otherPill.timeLabel.text = "Other"
+        row2ScrollView.setContentOffset(.zero, animated: false)
+        applySelection(selected: min5)
+    }
+
+    private func applySelection(selected: TimePillView) {
+        allPills.forEach { pill in
+            let on = pill === selected
+            pill.backgroundColor = on ? selectedColor : normalColor
+            pill.timeLabel.textColor = on ? .labelWhiteColor : .pressButtonTitleColor
+        }
+        selectedPill = selected
+    }
+
+    @objc private func pillTapped(_ g: UITapGestureRecognizer) {
+        guard let pill = g.view as? TimePillView else { return }
+        if pill === otherPill {
+            presentCustomInput()
+        } else {
+            applySelection(selected: pill)
         }
     }
 
-    @objc private func handlePillTap(_ gesture: UITapGestureRecognizer) {
-        guard let tapped = gesture.view else { return }
-        applySelection(selected: tapped)
-        switch tapped {
-        case fiveMinutesButton:
-            fiveMinutesButtonTapped(fiveMinutesButton)
-        case tenMinutesButton:
-            tenMinutesButtonTapped(tenMinutesButton)
-        case fifteenMinutesButton:
-            fifteenMinutesButtonTapped(fifteenMinutesButton)
-        case twentyMinutesButton:
-            twentyMinutesButtonTapped(twentyMinutesButton)
-        case thirtyMinutesButton:
-            thirtyMinutesButtonTapped(thirtyMinutesButton)
-        default:
-            break
+    private func addCustomPill(text: String) {
+        let pill = makePill(text)
+        allPills.insert(pill, at: allPills.count - 1)
+        let otherIndex = row2Stack.arrangedSubviews.firstIndex(of: otherPill) ?? row2Stack.arrangedSubviews.count
+        row2Stack.insertArrangedSubview(pill, at: otherIndex)
+        applySelection(selected: pill)
+
+        DispatchQueue.main.async {
+            let rightEdge = self.row2Stack.frame.maxX + 10
+            let offset = max(0, rightEdge - self.row2ScrollView.bounds.width)
+            self.row2ScrollView.setContentOffset(CGPoint(x: offset, y: 0), animated: true)
         }
     }
 
-    @objc private func fiveMinutesButtonTapped(_ sender: UIView) {
-        applySelection(selected: fiveMinutesButton)
+    private func presentCustomInput() {
+        var responder: UIResponder? = self
+        while let r = responder {
+            if let vc = r as? UIViewController {
+                let alert = UIAlertController(title: "Custom duration", message: "Enter minutes", preferredStyle: .alert)
+                alert.addTextField { tf in
+                    tf.placeholder = "e.g. 25"
+                    tf.keyboardType = .numberPad
+                }
+                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+                alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+                    guard let self,
+                          let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespaces),
+                          let mins = Int(text), mins > 0 else { return }
+                    self.addCustomPill(text: "\(mins) min")
+                })
+                vc.present(alert, animated: true)
+                return
+            }
+            responder = r.next
+        }
     }
-
-    @objc private func tenMinutesButtonTapped(_ sender: UIView) {
-        applySelection(selected: tenMinutesButton)
-    }
-
-    @objc private func fifteenMinutesButtonTapped(_ sender: UIView) {
-        applySelection(selected: fifteenMinutesButton)
-    }
-
-    @objc private func twentyMinutesButtonTapped(_ sender: UIView) {
-        applySelection(selected: twentyMinutesButton)
-    }
-
-    @objc private func thirtyMinutesButtonTapped(_ sender: UIView) {
-        applySelection(selected: thirtyMinutesButton)
-    }
-
-
-
 }

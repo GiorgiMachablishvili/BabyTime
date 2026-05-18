@@ -1,343 +1,217 @@
 import UIKit
 import SnapKit
 
-class FeedingViewCell: UICollectionViewCell {
+final class FeedingViewCell: UICollectionViewCell {
+    static let reuseId = "FeedingViewCell"
 
-    /// Callback when user taps Delete after swiping. View controller should remove the item.
-    var onDelete: (() -> Void)?
+    var onMenuTap: (() -> Void)?
 
-    private let deleteStripWidth: CGFloat = 80
+    // MARK: - Time column
 
-    // MARK: - Swipe / Delete strip (hidden until swipe; full cell height)
-    private lazy var deleteStripView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .systemRed
-        view.isHidden = true
-        view.makeRoundCorners(16)
-        return view
+    private let timeHourLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 16 * Constraint.yCoeff, weight: .bold)
+        l.textColor = UIColor(hexString: "#222222")
+        l.textAlignment = .right
+        return l
     }()
 
-    private lazy var deleteLabel: UILabel = {
-        let view = UILabel()
-        view.text = "Delete"
-        view.font = .systemFont(ofSize: 14, weight: .semibold)
-        view.textColor = .white
-        view.textAlignment = .center
-        return view
+    private let timeAmPmLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 11 * Constraint.yCoeff, weight: .regular)
+        l.textColor = UIColor(hexString: "#888888")
+        l.textAlignment = .right
+        return l
     }()
 
-    private lazy var cardWrapperView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .clear
-        view.clipsToBounds = true
-        return view
+    // MARK: - Card
+
+    private let card: UIView = {
+        let v = UIView()
+        v.backgroundColor = .white
+        v.layer.cornerRadius = 16 * Constraint.yCoeff
+        v.clipsToBounds = true
+        return v
     }()
 
-    // MARK: - Subviews
-    private lazy var backgroundCard: UIView = {
-        let view = UIView(frame: .zero)
-        view.backgroundColor = .white
-        view.makeRoundCorners(16)
-        view.layer.masksToBounds = true
-        return view
+    private let accentStrip: UIView = {
+        let v = UIView()
+        return v
     }()
 
-    private lazy var iconContainer: UIView = {
-        let view = UIView(frame: .zero)
-        view.layer.cornerRadius = 14
-        view.layer.masksToBounds = true
-        view.backgroundColor = UIColor.feedingViewColor.withAlphaComponent(0.9)
-        return view
+    private let typeBadge: UIView = {
+        let v = UIView()
+        v.layer.cornerRadius = 9 * Constraint.yCoeff
+        v.clipsToBounds = true
+        return v
     }()
 
-    private lazy var iconView: UIImageView = {
-        let view = UIImageView(frame: .zero)
-        view.contentMode = .scaleAspectFit
-        view.tintColor = .white
-        view.image = UIImage(systemName: "leaf")
-        return view
+    private let typeBadgeLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 12 * Constraint.yCoeff, weight: .semibold)
+        return l
     }()
 
-    private lazy var titleLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.font = .systemFont(ofSize: 16, weight: .semibold)
-        view.textColor = .label
-        view.text = "Solid Food"
-        return view
+    private let amountLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .regular)
+        l.textColor = UIColor(hexString: "#666666")
+        return l
     }()
 
-//    private lazy var subtitleLabel: UILabel = {
-//        let view = UILabel(frame: .zero)
-//        view.font = .systemFont(ofSize: 14, weight: .regular)
-//        view.textColor = UIColor.brown.withAlphaComponent(0.8)
-//        view.text = "90 ml • apple"
-//        view.numberOfLines = 1
-//        view.lineBreakMode = .byTruncatingTail
-//        view.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-//        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
-//        return view
-//    }()
-
-    private lazy var amountFeedLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.font = .systemFont(ofSize: 14, weight: .regular)
-        view.textColor = UIColor.brown.withAlphaComponent(0.8)
-        view.text = "90 ml"
-        view.numberOfLines = 1
-        view.lineBreakMode = .byTruncatingTail
-        view.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        return view
+    private let checkmark: UIImageView = {
+        let iv = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
+        iv.tintColor = UIColor(hexString: "#5aac7c")
+        iv.contentMode = .scaleAspectFit
+        return iv
     }()
 
-    private lazy var noteInfoLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.font = .systemFont(ofSize: 14, weight: .regular)
-        view.textColor = UIColor.brown.withAlphaComponent(0.8)
-        view.text = "apple"
-        view.numberOfLines = 1
-        view.lineBreakMode = .byTruncatingTail
-        view.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        return view
-    }()
-
-    private lazy var timeLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.font = .systemFont(ofSize: 15, weight: .semibold)
-        view.textColor = UIColor.brown.withAlphaComponent(0.9)
-        view.textAlignment = .right
-        view.text = "11:28 AM"
-        return view
+    private lazy var menuButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "ellipsis"), for: .normal)
+        b.tintColor = UIColor(hexString: "#aaaaaa")
+        b.addTarget(self, action: #selector(menuTapped), for: .touchUpInside)
+        return b
     }()
 
     // MARK: - Init
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         contentView.backgroundColor = .clear
-        contentView.clipsToBounds = true
-        setupUI()
+
+        contentView.addSubview(timeHourLabel)
+        contentView.addSubview(timeAmPmLabel)
+        contentView.addSubview(card)
+        card.addSubview(accentStrip)
+        card.addSubview(typeBadge)
+        typeBadge.addSubview(typeBadgeLabel)
+        card.addSubview(amountLabel)
+        card.addSubview(checkmark)
+        card.addSubview(menuButton)
+
         setupConstraints()
-        setupSwipeGesture()
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    required init?(coder: NSCoder) { fatalError() }
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        titleLabel.text = nil
-        amountFeedLabel.text = nil
-        noteInfoLabel.text = nil
-        timeLabel.text = nil
-        iconView.image = nil
-        iconContainer.backgroundColor = UIColor.feedingViewColor.withAlphaComponent(0.9)
-        resetSwipe(animated: false)
-        onDelete = nil
+        onMenuTap = nil
+        amountLabel.text = nil
     }
 
-    // MARK: - Setup
-    private func setupUI() {
-        contentView.addSubview(deleteStripView)
-        deleteStripView.addSubview(deleteLabel)
-        contentView.addSubview(cardWrapperView)
-        cardWrapperView.addSubview(backgroundCard)
-        backgroundCard.addSubview(iconContainer)
-        iconContainer.addSubview(iconView)
-        backgroundCard.addSubview(titleLabel)
-//        backgroundCard.addSubview(subtitleLabel)
-        backgroundCard.addSubview(amountFeedLabel)
-        backgroundCard.addSubview(noteInfoLabel)
-        backgroundCard.addSubview(timeLabel)
-        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        timeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-    }
+    // MARK: - Layout
 
     private func setupConstraints() {
-        deleteStripView.snp.makeConstraints { make in
-            make.top.bottom.trailing.equalToSuperview()
-            make.width.equalTo(deleteStripWidth)
+        let timeW: CGFloat = 44 * Constraint.xCoeff
+        let stripW: CGFloat = 5 * Constraint.xCoeff
+
+        timeHourLabel.snp.makeConstraints {
+            $0.leading.equalToSuperview()
+            $0.width.equalTo(timeW)
+            $0.bottom.equalTo(contentView.snp.centerY).offset(-1)
         }
-        deleteLabel.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
-        cardWrapperView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-        backgroundCard.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+        timeAmPmLabel.snp.makeConstraints {
+            $0.leading.equalToSuperview()
+            $0.width.equalTo(timeW)
+            $0.top.equalTo(contentView.snp.centerY).offset(1)
         }
 
-        iconContainer.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
-            make.centerY.equalToSuperview()
-            make.width.equalTo(44 * Constraint.yCoeff)
-            make.height.equalTo(44 * Constraint.xCoeff)
+        card.snp.makeConstraints {
+            $0.leading.equalTo(timeHourLabel.snp.trailing).offset(10 * Constraint.xCoeff)
+            $0.trailing.top.bottom.equalToSuperview()
         }
 
-        iconView.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.width.equalTo(24 * Constraint.yCoeff)
-            make.height.equalTo(24 * Constraint.xCoeff)
+        accentStrip.snp.makeConstraints {
+            $0.leading.top.bottom.equalToSuperview()
+            $0.width.equalTo(stripW)
         }
 
-        // Right-side time/date stack
-        timeLabel.snp.makeConstraints { make in
-            make.centerY.equalToSuperview()
-            make.trailing.equalToSuperview().inset(16 * Constraint.yCoeff)
+        menuButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(12 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(28 * Constraint.yCoeff)
         }
 
-        // Title and subtitle in the middle, constrained between icon and time
-        titleLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(18 * Constraint.xCoeff)
-            make.leading.equalTo(iconContainer.snp.trailing).offset(12 * Constraint.yCoeff)
-            make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12 * Constraint.yCoeff)
+        checkmark.snp.makeConstraints {
+            $0.trailing.equalTo(menuButton.snp.leading).offset(-6 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(20 * Constraint.yCoeff)
         }
 
-//        subtitleLabel.snp.makeConstraints { make in
-//            make.top.equalTo(titleLabel.snp.bottom).offset(4)
-//            make.leading.equalTo(titleLabel)
-//            make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-12)
-//            make.bottom.lessThanOrEqualToSuperview().inset(12)
-//        }
-
-        amountFeedLabel.snp.remakeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(4 * Constraint.xCoeff)
-            make.leading.equalTo(titleLabel)
-            make.bottom.lessThanOrEqualToSuperview().inset(12 * Constraint.xCoeff)
+        typeBadge.snp.makeConstraints {
+            $0.leading.equalTo(accentStrip.snp.trailing).offset(12 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview().offset(-10 * Constraint.yCoeff)
+        }
+        typeBadgeLabel.snp.makeConstraints {
+            $0.top.bottom.equalToSuperview().inset(4 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview().inset(8 * Constraint.xCoeff)
         }
 
-        noteInfoLabel.snp.remakeConstraints { make in
-            make.top.equalTo(amountFeedLabel.snp.top)
-            make.leading.equalTo(amountFeedLabel.snp.trailing).offset(4 * Constraint.yCoeff)
-            make.bottom.equalTo(amountFeedLabel)
+        amountLabel.snp.makeConstraints {
+            $0.leading.equalTo(typeBadge.snp.leading)
+            $0.top.equalTo(typeBadge.snp.bottom).offset(4 * Constraint.yCoeff)
+            $0.trailing.lessThanOrEqualTo(checkmark.snp.leading).offset(-8 * Constraint.xCoeff)
         }
     }
 
-    // MARK: - Swipe to delete
-    private func setupSwipeGesture() {
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-        pan.delegate = self
-        cardWrapperView.addGestureRecognizer(pan)
-        cardWrapperView.isUserInteractionEnabled = true
+    // MARK: - Configure
 
-        let tapDelete = UITapGestureRecognizer(target: self, action: #selector(deleteTapped))
-        deleteStripView.addGestureRecognizer(tapDelete)
-        deleteStripView.isUserInteractionEnabled = true
-    }
+    func configure(entry: FeedingLogEntry) {
+        let date = Date(timeIntervalSince1970: entry.savedAtEpochSeconds ?? 0)
+        let tf = DateFormatter()
+        tf.dateFormat = "h:mm"
+        timeHourLabel.text = tf.string(from: date)
+        tf.dateFormat = "a"
+        timeAmPmLabel.text = tf.string(from: date)
 
-    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
-        let deltaX = gesture.translation(in: cardWrapperView).x
-        let currentX = cardWrapperView.transform.tx
-        switch gesture.state {
-        case .changed:
-            let newX = max(-deleteStripWidth, min(0, currentX + deltaX))
-            cardWrapperView.transform = CGAffineTransform(translationX: newX, y: 0)
-            gesture.setTranslation(.zero, in: cardWrapperView)
-            deleteStripView.isHidden = (newX >= 0)
-        case .ended, .cancelled:
-            let finalX = max(-deleteStripWidth, min(0, currentX + deltaX))
-            cardWrapperView.transform = CGAffineTransform(translationX: finalX, y: 0)
-            gesture.setTranslation(.zero, in: cardWrapperView)
-            if finalX < -deleteStripWidth / 2 {
-                revealDelete(animated: true)
-                deleteStripView.isHidden = false
-            } else {
-                resetSwipe(animated: true)
-                deleteStripView.isHidden = true
-            }
+        switch entry.typeRaw {
+        case "breast":
+            accentStrip.backgroundColor = UIColor.systemPink
+            typeBadge.backgroundColor = UIColor.systemPink.withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = UIColor.systemPink
+            typeBadgeLabel.text = "Breast"
+        case "bottle":
+            accentStrip.backgroundColor = UIColor(hexString: "#9b7fd4")
+            typeBadge.backgroundColor = UIColor(hexString: "#9b7fd4").withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = UIColor(hexString: "#9b7fd4")
+            typeBadgeLabel.text = "Bottle"
+        case "formula":
+            accentStrip.backgroundColor = UIColor.systemOrange
+            typeBadge.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = UIColor.systemOrange
+            typeBadgeLabel.text = "Formula"
         default:
-            break
+            accentStrip.backgroundColor = UIColor(hexString: "#5aac7c")
+            typeBadge.backgroundColor = UIColor(hexString: "#5aac7c").withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = UIColor(hexString: "#5aac7c")
+            typeBadgeLabel.text = "Solids"
         }
-    }
 
-    @objc private func deleteTapped() {
-        onDelete?()
-    }
-
-    private func revealDelete(animated: Bool) {
-        let work = {
-            self.cardWrapperView.transform = CGAffineTransform(translationX: -self.deleteStripWidth, y: 0)
-        }
-        if animated {
-            UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut], animations: work)
+        if let vol = entry.volumeText, !vol.isEmpty {
+            amountLabel.text = vol
+            amountLabel.isHidden = false
+        } else if let notes = entry.notesText, !notes.isEmpty {
+            amountLabel.text = notes
+            amountLabel.isHidden = false
         } else {
-            work()
+            amountLabel.isHidden = true
         }
     }
 
-    private func resetSwipe(animated: Bool) {
-        let work = {
-            self.cardWrapperView.transform = .identity
-            self.deleteStripView.isHidden = true
-        }
-        if animated {
-            UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut], animations: work)
-        } else {
-            work()
-        }
-    }
+    @objc private func menuTapped() { onMenuTap?() }
 
-    // MARK: - Public API
+    // MARK: - ViewModel (kept for FeedingLogStore compatibility)
+
     struct ViewModel {
         enum FeedingType {
             case breast, bottle, formula, solid
         }
         let type: FeedingType
-        let volumeText: String?   // e.g. "90 ml" for bottle/formula/solid
-        let notesText: String?    // e.g. "apple"
-        let timeText: String      // e.g. "11:28 AM"
-        let dateText: String      // e.g. "Dec 26"
-    }
-
-    func configure(with vm: ViewModel) {
-        switch vm.type {
-        case .breast:
-            titleLabel.text = "Breast"
-            iconView.image = UIImage(systemName: "figure.seated.side.right.child.lap")
-            iconContainer.backgroundColor = UIColor.systemPink.withAlphaComponent(0.9)
-        case .bottle:
-            titleLabel.text = "Bottle"
-            iconView.image = UIImage(systemName: "waterbottle")
-            iconContainer.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.9)
-        case .formula:
-            titleLabel.text = "Formula"
-            iconView.image = UIImage(systemName: "flask")
-            iconContainer.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.9)
-        case .solid:
-            titleLabel.text = "Solid Food"
-            iconView.image = UIImage(systemName: "carrot")
-            iconContainer.backgroundColor = UIColor.feedingViewColor.withAlphaComponent(0.9)
-        }
-
-        if let vol = vm.volumeText, !vol.isEmpty, let notes = vm.notesText, !notes.isEmpty {
-            amountFeedLabel.text = vol
-            amountFeedLabel.isHidden = false
-            noteInfoLabel.text = " • \(notes)"
-            noteInfoLabel.isHidden = false
-        } else if let vol = vm.volumeText, !vol.isEmpty {
-            amountFeedLabel.text = vol
-            amountFeedLabel.isHidden = false
-            noteInfoLabel.isHidden = true
-        } else if let notes = vm.notesText, !notes.isEmpty {
-            amountFeedLabel.isHidden = true
-            noteInfoLabel.text = notes
-            noteInfoLabel.isHidden = false
-        } else {
-            amountFeedLabel.isHidden = (vm.type == .breast)
-            amountFeedLabel.text = vm.volumeText
-            noteInfoLabel.isHidden = true
-        }
-
-        timeLabel.text = vm.timeText
-    }
-}
-
-extension FeedingViewCell: UIGestureRecognizerDelegate {
-    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
-        let v = pan.velocity(in: cardWrapperView)
-        return abs(v.x) > abs(v.y)
+        let volumeText: String?
+        let notesText: String?
+        let timeText: String
+        let dateText: String
     }
 }

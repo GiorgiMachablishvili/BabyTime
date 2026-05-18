@@ -45,6 +45,13 @@ final class FeedingCalendarViewController: UIViewController {
         return view
     }()
 
+    var onWillDismiss: (() -> Void)?
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        loadRemindersForSelectedDay()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Feeding Reminders"
@@ -116,6 +123,7 @@ final class FeedingCalendarViewController: UIViewController {
     }
 
     @objc private func doneTapped() {
+        onWillDismiss?()
         dismiss(animated: true)
     }
 
