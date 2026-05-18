@@ -140,7 +140,7 @@ final class DiaperViewController: UIViewController {
         b.tintColor = .white
         b.layer.cornerRadius = 22 * Constraint.yCoeff
         b.clipsToBounds = true
-        b.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
+        b.isUserInteractionEnabled = false
         return b
     }()
 
@@ -166,6 +166,14 @@ final class DiaperViewController: UIViewController {
         return b
     }()
 
+    private lazy var backButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
+        b.tintColor = UIColor(hexString: "#555555")
+        b.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        return b
+    }()
+
     // MARK: - Collection UI
 
     private lazy var collectionView: UICollectionView = {
@@ -176,27 +184,14 @@ final class DiaperViewController: UIViewController {
         return cv
     }()
 
-    private lazy var fabButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.backgroundColor = UIColor(hexString: "#3d2b8a")
-        b.setImage(UIImage(systemName: "plus"), for: .normal)
-        b.tintColor = .white
-        b.layer.cornerRadius = 28 * Constraint.yCoeff
-        b.layer.shadowColor = UIColor.black.cgColor
-        b.layer.shadowOpacity = 0.25
-        b.layer.shadowOffset = CGSize(width: 0, height: 4)
-        b.layer.shadowRadius = 8
-        b.addTarget(self, action: #selector(fabTapped), for: .touchUpInside)
-        return b
-    }()
 
     private lazy var diaperView: DiaperView = {
         let v = DiaperView()
         v.isHidden = true
         v.onTapCloseButton = { [weak self] in self?.dismissBottomSheet() }
-        v.onTapSave = { [weak self] type in
+        v.onTapSave = { [weak self] type, note in
             guard let self else { return }
-            self.addEntry(type: type, note: nil)
+            self.addEntry(type: type, note: note)
             self.dismissBottomSheet()
         }
         return v
@@ -219,6 +214,13 @@ final class DiaperViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
+        let isPushed = navigationController?.viewControllers.count ?? 0 > 1
+        backButton.isHidden = !isPushed
+        gearButton.isHidden = isPushed
+        let pad = 20 * Constraint.xCoeff
+        avatarButton.snp.updateConstraints {
+            $0.leading.equalToSuperview().offset(isPushed ? 44 * Constraint.xCoeff : pad)
+        }
         refreshHeader()
     }
 
@@ -295,8 +297,9 @@ final class DiaperViewController: UIViewController {
         headerView.addSubview(nameTitleLabel)
         headerView.addSubview(dateLabel)
         headerView.addSubview(gearButton)
+        headerView.addSubview(backButton)
         view.addSubview(collectionView)
-        view.addSubview(fabButton)
+
         view.addSubview(diaperView)
     }
 
@@ -325,15 +328,16 @@ final class DiaperViewController: UIViewController {
             $0.centerY.equalToSuperview()
             $0.width.height.equalTo(36 * Constraint.yCoeff)
         }
+        backButton.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(8 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(36 * Constraint.yCoeff)
+        }
         collectionView.snp.makeConstraints {
             $0.top.equalTo(headerView.snp.bottom)
             $0.leading.trailing.bottom.equalToSuperview()
         }
-        fabButton.snp.makeConstraints {
-            $0.width.height.equalTo(56 * Constraint.yCoeff)
-            $0.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
-            $0.bottom.equalTo(view.safeAreaLayoutGuide).inset(24 * Constraint.yCoeff)
-        }
+
         diaperView.snp.makeConstraints { $0.edges.equalToSuperview() }
     }
 
@@ -357,14 +361,14 @@ final class DiaperViewController: UIViewController {
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: DiaperSummaryCell.reuseId, for: indexPath) as! DiaperSummaryCell
                 let today = self.todayItems
                 let mixed = today.filter { $0.type == .mixed }.count
-                let wet   = today.filter { $0.type == .wet }.count + mixed
-                let dirty = today.filter { $0.type == .dirty }.count + mixed
+                let wet   = today.filter { $0.type == .wet }.count
+                let dirty = today.filter { $0.type == .dirty }.count
                 cell.configure(wetCount: wet, dirtyCount: dirty, mixedCount: mixed)
                 return cell
 
             case .quickLog:
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: DiaperQuickLogCell.reuseId, for: indexPath) as! DiaperQuickLogCell
-                cell.onQuickLog = { [weak self] type in self?.addEntry(type: type, note: nil) }
+                cell.onQuickLog = { [weak self] type in self?.openSheet(type: type) }
                 return cell
 
             case .chart:
@@ -415,6 +419,7 @@ final class DiaperViewController: UIViewController {
         snap.appendItems([Item.quickLog], toSection: .quickLog)
         snap.appendItems([Item.chart],    toSection: .chart)
         snap.appendItems(todayItems.map { Item.log($0) }, toSection: .today)
+        snap.reconfigureItems([.pills, .chart])
         dataSource.apply(snap, animatingDifferences: animated)
     }
 
@@ -455,7 +460,13 @@ final class DiaperViewController: UIViewController {
         tabBarController?.selectedIndex = 4
     }
 
-    @objc private func fabTapped() {
+    @objc private func backTapped() {
+        navigationController?.popViewController(animated: true)
+    }
+
+
+    private func openSheet(type: DiaperType, showTypePicker: Bool = false) {
+        diaperView.configure(initialType: type, showTypePicker: showTypePicker)
         diaperView.isHidden = false
         diaperView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
         UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0.6) {

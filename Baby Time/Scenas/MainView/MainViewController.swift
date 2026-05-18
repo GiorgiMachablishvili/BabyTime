@@ -471,10 +471,22 @@ final class MainViewController: UIViewController {
         switch item {
         case .feeding:      tabBarController?.selectedIndex = 1
         case .sleep:        tabBarController?.selectedIndex = 2
-        case .diaper:       tabBarController?.selectedIndex = 3
-        case .growth:       navigationController?.pushViewController(GrowthViewController(), animated: true)
-        case .vaccination:  navigationController?.pushViewController(VaccinationViewController(), animated: true)
-        case .doctorVisit:  navigationController?.pushViewController(DoctorVisitViewController(), animated: true)
+        case .diaper:
+            let vc = DiaperViewController()
+            vc.hidesBottomBarWhenPushed = true
+            navigationController?.pushViewController(vc, animated: true)
+        case .growth:
+            let vc = GrowthViewController()
+            vc.hidesBottomBarWhenPushed = true
+            navigationController?.pushViewController(vc, animated: true)
+        case .vaccination:
+            let vc = VaccinationViewController()
+            vc.hidesBottomBarWhenPushed = true
+            navigationController?.pushViewController(vc, animated: true)
+        case .doctorVisit:
+            let vc = DoctorVisitViewController()
+            vc.hidesBottomBarWhenPushed = true
+            navigationController?.pushViewController(vc, animated: true)
         }
     }
 }

@@ -65,6 +65,8 @@ final class DoctorVisitViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        let isPushed = navigationController?.viewControllers.count ?? 0 > 1
+        topBar.setBackVisible(isPushed)
         loadData()
     }
 
@@ -76,7 +78,7 @@ final class DoctorVisitViewController: UIViewController {
 
         topBar.snp.makeConstraints {
             $0.top.leading.trailing.equalToSuperview()
-            $0.height.equalTo(100 * Constraint.yCoeff)
+            $0.height.equalTo(110 * Constraint.yCoeff)
         }
         collectionView.snp.makeConstraints {
             $0.top.equalTo(topBar.snp.bottom)
@@ -89,6 +91,7 @@ final class DoctorVisitViewController: UIViewController {
         }
 
         topBar.onCalendarTap = { [weak self] in self?.presentCalendar() }
+        topBar.onBackTap = { [weak self] in self?.navigationController?.popViewController(animated: true) }
     }
 
     private func setupDataSource() {
@@ -214,6 +217,9 @@ final class DoctorVisitViewController: UIViewController {
             var v = visit; v.isCompleted = true
             DoctorVisitStore.upsert(v); self?.loadData()
         })
+        alert.addAction(UIAlertAction(title: "Edit details", style: .default) { [weak self] _ in
+            self?.presentEditVisitDetails(visit: visit)
+        })
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             DoctorVisitStore.delete(id: visit.id); self?.loadData()
         })
@@ -221,10 +227,29 @@ final class DoctorVisitViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func presentCalendar() {
-        let alert = UIAlertController(title: "Calendar", message: "Calendar view coming soon.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+    private func presentEditVisitDetails(visit: DoctorVisit) {
+        let alert = UIAlertController(title: "Edit Visit", message: nil, preferredStyle: .alert)
+        alert.addTextField { tf in tf.text = visit.visitTitle; tf.placeholder = "Visit title" }
+        alert.addTextField { tf in tf.text = visit.doctorName; tf.placeholder = "Doctor name" }
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self, weak alert] _ in
+            guard let self else { return }
+            var v = visit
+            if let title = alert?.textFields?[0].text, !title.isEmpty { v.visitTitle = title }
+            if let doctor = alert?.textFields?[1].text { v.doctorName = doctor }
+            DoctorVisitStore.upsert(v)
+            self.loadData()
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)
+    }
+
+    private func presentCalendar() {
+        if #available(iOS 16.0, *) {
+            let vc = DoctorVisitCalendarViewController()
+            vc.onWillDismiss = { [weak self] in self?.loadData() }
+            let nav = UINavigationController(rootViewController: vc)
+            present(nav, animated: true)
+        }
     }
 
     private func deleteVisit(id: UUID) {
@@ -247,6 +272,15 @@ final class DoctorVisitViewController: UIViewController {
 private final class DVTopBar: UIView {
 
     var onCalendarTap: (() -> Void)?
+    var onBackTap: (() -> Void)?
+
+    private let backButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
+        b.tintColor = UIColor(hexString: "#555555")
+        b.isHidden = true
+        return b
+    }()
 
     private let avatarView: UIView = {
         let v = UIView(); v.layer.cornerRadius = 18 * Constraint.yCoeff; v.clipsToBounds = true
@@ -279,15 +313,19 @@ private final class DVTopBar: UIView {
         super.init(frame: frame)
         backgroundColor = .viewsBackGourdColor
         avatarImage.contentMode = .scaleAspectFill; avatarImage.clipsToBounds = true
+        addSubview(backButton)
         addSubview(avatarView); avatarView.addSubview(avatarImage); avatarView.addSubview(avatarInitial)
         addSubview(titleLabel); addSubview(calBtn); addSubview(pageTitle)
 
-        avatarView.snp.makeConstraints { $0.leading.equalToSuperview().inset(20 * Constraint.xCoeff); $0.top.equalToSuperview().inset(16 * Constraint.yCoeff); $0.width.height.equalTo(36 * Constraint.yCoeff) }
+        backButton.snp.makeConstraints { $0.leading.equalToSuperview().inset(8 * Constraint.xCoeff); $0.centerY.equalTo(avatarView); $0.width.height.equalTo(36 * Constraint.yCoeff) }
+        avatarView.snp.makeConstraints { $0.leading.equalToSuperview().inset(20 * Constraint.xCoeff); $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff); $0.width.height.equalTo(44 * Constraint.yCoeff) }
         avatarImage.snp.makeConstraints { $0.edges.equalToSuperview() }
         avatarInitial.snp.makeConstraints { $0.center.equalToSuperview() }
-        titleLabel.snp.makeConstraints { $0.leading.equalTo(avatarView.snp.trailing).offset(8 * Constraint.xCoeff); $0.centerY.equalTo(avatarView) }
+        titleLabel.snp.makeConstraints { $0.leading.equalTo(avatarView.snp.trailing).offset(10 * Constraint.xCoeff); $0.bottom.equalTo(avatarView.snp.centerY).offset(-1) }
+        pageTitle.snp.makeConstraints { $0.leading.equalTo(avatarView.snp.trailing).offset(10 * Constraint.xCoeff); $0.top.equalTo(avatarView.snp.centerY).offset(2) }
         calBtn.snp.makeConstraints { $0.trailing.equalToSuperview().inset(20 * Constraint.xCoeff); $0.centerY.equalTo(avatarView); $0.width.height.equalTo(36 * Constraint.yCoeff) }
-        pageTitle.snp.makeConstraints { $0.leading.equalToSuperview().inset(20 * Constraint.xCoeff); $0.bottom.equalToSuperview().inset(8 * Constraint.yCoeff) }
+
+        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -295,7 +333,17 @@ private final class DVTopBar: UIView {
         if let p = photo { avatarImage.image = p; avatarInitial.isHidden = true }
         else { avatarImage.image = nil; avatarInitial.text = String(name.prefix(1)).uppercased(); avatarInitial.isHidden = false }
     }
+
+    func setBackVisible(_ visible: Bool) {
+        backButton.isHidden = !visible
+        avatarView.snp.updateConstraints {
+            $0.leading.equalToSuperview().inset(visible ? 44 * Constraint.xCoeff : 20 * Constraint.xCoeff)
+        }
+        layoutIfNeeded()
+    }
+
     @objc private func calTapped() { onCalendarTap?() }
+    @objc private func backTapped() { onBackTap?() }
 }
 
 // MARK: - DVNextAppointmentCell

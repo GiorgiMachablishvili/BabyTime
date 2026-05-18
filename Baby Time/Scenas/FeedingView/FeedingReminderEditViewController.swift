@@ -16,6 +16,25 @@ final class FeedingReminderEditViewController: UIViewController {
         return view
     }()
 
+    private lazy var typeBadge: UIView = {
+        let v = UIView()
+        v.layer.cornerRadius = 22 * Constraint.yCoeff
+        v.clipsToBounds = true
+        v.isHidden = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(badgeTapped))
+        v.addGestureRecognizer(tap)
+        v.isUserInteractionEnabled = true
+        return v
+    }()
+
+    private lazy var typeBadgeLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 17, weight: .bold)
+        l.textColor = .white
+        l.textAlignment = .center
+        return l
+    }()
+
     private lazy var timePicker: UIDatePicker = {
         let view = UIDatePicker()
         view.datePickerMode = .time
@@ -80,6 +99,7 @@ final class FeedingReminderEditViewController: UIViewController {
         setupKeyboardAvoidance()
         feedingTypeView.onTypeChanged = { [weak self] type in
             self?.selectedFeedingType = type
+            self?.showBadge(for: type)
         }
         if let r = reminder {
             var comps = DateComponents()
@@ -97,6 +117,7 @@ final class FeedingReminderEditViewController: UIViewController {
             }
             selectedFeedingType = type
             feedingTypeView.setSelectedType(type)
+            showBadge(for: type)
         } else {
             deleteButton.isHidden = true
             feedingTypeView.setSelectedType(.solid)
@@ -110,6 +131,8 @@ final class FeedingReminderEditViewController: UIViewController {
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         contentView.addSubview(feedingTypeView)
+        contentView.addSubview(typeBadge)
+        typeBadge.addSubview(typeBadgeLabel)
         contentView.addSubview(timePicker)
         contentView.addSubview(noteLabel)
         contentView.addSubview(noteTextField)
@@ -130,6 +153,15 @@ final class FeedingReminderEditViewController: UIViewController {
             $0.top.equalTo(contentView.snp.top).offset(20 * Constraint.xCoeff)
             $0.leading.trailing.equalToSuperview().inset(20 * Constraint.yCoeff)
             $0.height.equalTo(98 * Constraint.xCoeff)
+        }
+        typeBadge.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.centerY.equalTo(feedingTypeView)
+            $0.height.equalTo(44 * Constraint.yCoeff)
+        }
+        typeBadgeLabel.snp.makeConstraints {
+            $0.top.bottom.equalToSuperview()
+            $0.leading.trailing.equalToSuperview().inset(24 * Constraint.xCoeff)
         }
         timePicker.snp.makeConstraints {
             $0.top.equalTo(feedingTypeView.snp.bottom).offset(8 * Constraint.xCoeff)
@@ -191,6 +223,30 @@ final class FeedingReminderEditViewController: UIViewController {
         UIView.animate(withDuration: 0.25) {
             self.view.layoutIfNeeded()
         }
+    }
+
+    private func showBadge(for type: FeedingTypeView.FeedingType) {
+        switch type {
+        case .breast:
+            typeBadgeLabel.text = "Start Breast"
+            typeBadge.backgroundColor = UIColor(hexString: "#e07a5f")
+        case .bottle:
+            typeBadgeLabel.text = "Bottle"
+            typeBadge.backgroundColor = UIColor(hexString: "#9b7fd4")
+        case .formula:
+            typeBadgeLabel.text = "Formula"
+            typeBadge.backgroundColor = UIColor(hexString: "#4a9fc4")
+        case .solid:
+            typeBadgeLabel.text = "Solid"
+            typeBadge.backgroundColor = UIColor(hexString: "#5aac7c")
+        }
+        feedingTypeView.isHidden = true
+        typeBadge.isHidden = false
+    }
+
+    @objc private func badgeTapped() {
+        typeBadge.isHidden = true
+        feedingTypeView.isHidden = false
     }
 
     @objc private func cancelTapped() {

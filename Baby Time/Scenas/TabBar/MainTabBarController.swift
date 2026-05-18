@@ -17,9 +17,9 @@ final class MainTabBarController: UITabBarController {
             image: "house"
         )
 
-        let feeding = createNav(
+        let feed = createNav(
             vc: FeedingViewController(),
-            title: "Feeding",
+            title: "Feed",
             image: "fork.knife"
         )
 
@@ -29,19 +29,19 @@ final class MainTabBarController: UITabBarController {
             image: "moon"
         )
 
-        let diaper = createNav(
-            vc: DiaperViewController(),
-            title: "Diaper",
-            image: "figure.child.circle"
+        let aiTips = createNav(
+            vc: AITipsViewController(),
+            title: "AI Tips",
+            image: "sparkles"
         )
 
-        let settings = createNav(
+        let more = createNav(
             vc: SettingsViewController(),
-            title: "Settings",
-            image: "gear"
+            title: "More",
+            image: "ellipsis"
         )
 
-        viewControllers = [home, feeding, sleep, diaper, settings]
+        viewControllers = [home, feed, sleep, aiTips, more]
     }
 
     private func createNav(vc: UIViewController, title: String, image: String) -> UINavigationController {

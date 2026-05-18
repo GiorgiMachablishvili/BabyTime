@@ -2,8 +2,8 @@ import UserNotifications
 
 enum VisitReminderNotificationManager {
     private static let center = UNUserNotificationCenter.current()
-    private static let notificationHour = 9
-    private static let notificationMinute = 0
+    private static let defaultHour = 9
+    private static let defaultMinute = 0
 
     static func requestAuthorization(completion: @escaping (Bool) -> Void) {
         center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
@@ -36,8 +36,8 @@ enum VisitReminderNotificationManager {
             ]
 
             var comps = cal.dateComponents([.year, .month, .day], from: notifyDate)
-            comps.hour = notificationHour
-            comps.minute = notificationMinute
+            comps.hour = visit.hour ?? defaultHour
+            comps.minute = visit.minute ?? defaultMinute
             let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
             let request = UNNotificationRequest(
                 identifier: identifier(visitId: visit.id, kind: visit.kind, daysBefore: daysBefore),

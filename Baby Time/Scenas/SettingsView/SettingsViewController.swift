@@ -3,247 +3,559 @@ import SnapKit
 
 final class SettingsViewController: UIViewController {
 
+    // MARK: - State
+
     private var profileImage: UIImage?
     private var profileName: String?
     private var profileBirthday: Date?
-    private var profileGender: String?
+    private var profileGender: String = "Other"
+    private var selectedGender: Gender = .other { didSet { updateGenderButtons() } }
 
-    private lazy var sectionHeaderView: SectionHeaderView = {
-        let view = SectionHeaderView()
-        return view
-    }()
-
-    private enum Item: Int, CaseIterable {
-        case babyProfile
-        case notifications
-        case exportData
-        case darkMode
-
-        var title: String {
-            switch self {
-            case .babyProfile: return "Baby Profile"
-            case .notifications: return "Notifications"
-            case .exportData: return "Export Data"
-            case .darkMode: return "Dark Mode"
-            }
-        }
-
-        var subtitle: String? {
-            switch self {
-            case .babyProfile: return nil
-            case .notifications, .exportData, .darkMode: return "Coming soon"
-            }
-        }
-
-        var iconName: String {
-            switch self {
-            case .babyProfile: return "person"
-            case .notifications: return "bell"
-            case .exportData: return "square.and.arrow.up"
-            case .darkMode: return "moon"
-            }
-        }
+    private enum Gender: String {
+        case boy = "Boy", girl = "Girl", other = "Other"
     }
 
-    private lazy var collectionView: UICollectionView = {
-        let layout = UICollectionViewFlowLayout()
-        layout.minimumLineSpacing = 16
-        layout.sectionInset = UIEdgeInsets(top: 16, left: 16, bottom: 28, right: 16)
+    // MARK: - Header
 
-        let view = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        view.backgroundColor = .clear
-        view.dataSource = self
-        view.delegate = self
-
-        view.register(BabyProfileCell.self, forCellWithReuseIdentifier: BabyProfileCell.reuseId)
-        view.register(SettingsRowCell.self, forCellWithReuseIdentifier: SettingsRowCell.reuseId)
-
-        return view
+    private lazy var headerView: UIView = {
+        let v = UIView()
+        v.backgroundColor = .systemBackground
+        return v
     }()
+
+    private lazy var avatarButton: UIButton = {
+        let b = UIButton(type: .custom)
+        b.backgroundColor = UIColor(hexString: "#c5d8dc")
+        b.setImage(UIImage(systemName: "person.fill"), for: .normal)
+        b.tintColor = .white
+        b.layer.cornerRadius = 20 * Constraint.yCoeff
+        b.clipsToBounds = true
+        b.addTarget(self, action: #selector(avatarTapped), for: .touchUpInside)
+        return b
+    }()
+
+    private lazy var headerTitleLabel: UILabel = {
+        let l = UILabel()
+        l.text = "BabyTime"
+        l.font = .systemFont(ofSize: 18, weight: .bold)
+        l.textColor = .label
+        return l
+    }()
+
+    private lazy var gearButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "gearshape"), for: .normal)
+        b.tintColor = UIColor(hexString: "#555555")
+        return b
+    }()
+
+    // MARK: - Scroll
+
+    private lazy var scrollView: UIScrollView = {
+        let s = UIScrollView()
+        s.showsVerticalScrollIndicator = false
+        s.alwaysBounceVertical = true
+        s.keyboardDismissMode = .onDrag
+        return s
+    }()
+
+    private lazy var contentView = UIView()
+
+    // MARK: - Profile card
+
+    private lazy var profileSectionLabel = makeSectionTitle("BABY PROFILE")
+
+    private lazy var profileCard: UIView = makeCard()
+
+    private lazy var profilePhotoButton: UIButton = {
+        let b = UIButton(type: .custom)
+        b.backgroundColor = UIColor(hexString: "#c5d8dc")
+        b.setImage(UIImage(systemName: "person.fill"), for: .normal)
+        b.tintColor = .white
+        b.layer.cornerRadius = 40 * Constraint.yCoeff
+        b.clipsToBounds = true
+        b.addTarget(self, action: #selector(avatarTapped), for: .touchUpInside)
+        return b
+    }()
+
+    private lazy var cameraOverlay: UIView = {
+        let v = UIView()
+        v.backgroundColor = UIColor.black.withAlphaComponent(0.35)
+        v.layer.cornerRadius = 40 * Constraint.yCoeff
+        v.clipsToBounds = true
+        v.isUserInteractionEnabled = false
+        let img = UIImageView(image: UIImage(systemName: "camera.fill"))
+        img.tintColor = .white
+        img.contentMode = .scaleAspectFit
+        v.addSubview(img)
+        img.snp.makeConstraints { $0.center.equalToSuperview(); $0.width.height.equalTo(20 * Constraint.yCoeff) }
+        return v
+    }()
+
+    private lazy var nameLabel = makeFieldLabel("Baby's Name")
+    private lazy var nameTextField = makeTextField(placeholder: "Enter name")
+
+    private lazy var birthdayLabel = makeFieldLabel("Birthday")
+    private lazy var birthdayTextField: UITextField = {
+        let tf = makeTextField(placeholder: "dd.mm.yyyy")
+        tf.inputView = datePicker
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+        let cancel = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancelDate))
+        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let done = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneDate))
+        toolbar.items = [cancel, flex, done]
+        tf.inputAccessoryView = toolbar
+        let calIcon = UIImageView(image: UIImage(systemName: "calendar"))
+        calIcon.tintColor = .secondaryLabel
+        calIcon.contentMode = .scaleAspectFit
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 36, height: 24))
+        calIcon.frame = CGRect(x: 6, y: 0, width: 22, height: 24)
+        container.addSubview(calIcon)
+        tf.rightView = container
+        tf.rightViewMode = .always
+        return tf
+    }()
+
+    private lazy var datePicker: UIDatePicker = {
+        let dp = UIDatePicker()
+        dp.datePickerMode = .date
+        dp.preferredDatePickerStyle = .wheels
+        dp.maximumDate = Date()
+        dp.addTarget(self, action: #selector(dateChanged(_:)), for: .valueChanged)
+        return dp
+    }()
+
+    private lazy var genderLabel = makeFieldLabel("Gender")
+
+    private lazy var boyButton = GenderButton(title: "Boy")
+    private lazy var girlButton = GenderButton(title: "Girl")
+    private lazy var otherButton = GenderButton(title: "Other")
+
+    private lazy var genderStack: UIStackView = {
+        let s = UIStackView(arrangedSubviews: [boyButton, girlButton, otherButton])
+        s.axis = .horizontal
+        s.spacing = 10
+        s.distribution = .fillEqually
+        return s
+    }()
+
+    private lazy var saveProfileButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setTitle("Save Profile", for: .normal)
+        b.setTitleColor(.white, for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        b.backgroundColor = UIColor(hexString: "#6c5fcd")
+        b.layer.cornerRadius = 12
+        b.clipsToBounds = true
+        b.addTarget(self, action: #selector(saveProfile), for: .touchUpInside)
+        return b
+    }()
+
+    private lazy var profileSavedLabel: UILabel = {
+        let l = UILabel()
+        l.text = "⊙ Profile saved"
+        l.font = .systemFont(ofSize: 12)
+        l.textColor = .secondaryLabel
+        l.textAlignment = .center
+        l.isHidden = true
+        return l
+    }()
+
+    // MARK: - Preferences section
+
+    private lazy var prefSectionLabel = makeSectionTitle("PREFERENCES")
+
+    private lazy var notificationsRow = makeSettingsRow(icon: "bell", title: "Notifications", subtitle: "Coming soon")
+    private lazy var exportRow = makeSettingsRow(icon: "square.and.arrow.up", title: "Export Data", subtitle: "Coming soon")
+    private lazy var darkModeRow = makeSettingsRow(icon: "moon", title: "Dark Mode", subtitle: "Coming soon")
+
+    // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        view.backgroundColor = .viewsBackGourdColor
-        loadProfileFromStore()
-
+        view.backgroundColor = UIColor(white: 0.96, alpha: 1)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+        loadProfile()
         setupUI()
         setupConstraints()
-        configureViews()
+        setupGenderButtons()
     }
 
-    private func loadProfileFromStore() {
-        profileImage = BabyProfileStore.loadPhoto()
-        profileName = BabyProfileStore.loadName()
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+        loadProfile()
+        refreshProfileUI()
+    }
+
+    // MARK: - Load
+
+    private func loadProfile() {
+        profileImage   = BabyProfileStore.loadPhoto()
+        profileName    = BabyProfileStore.loadName()
         profileBirthday = BabyProfileStore.loadBirthday()
-        profileGender = BabyProfileStore.loadGender()
+        profileGender  = BabyProfileStore.loadGender() ?? "Other"
+        selectedGender = Gender(rawValue: profileGender) ?? .other
     }
 
-    private func birthdayText(from date: Date?) -> String? {
-        guard let date else { return nil }
-        let df = DateFormatter()
-        df.dateFormat = "dd.MM.yyyy"
-        return df.string(from: date)
+    private func refreshProfileUI() {
+        if let img = profileImage {
+            profilePhotoButton.setBackgroundImage(img, for: .normal)
+            profilePhotoButton.setImage(nil, for: .normal)
+            profilePhotoButton.contentHorizontalAlignment = .fill
+            profilePhotoButton.contentVerticalAlignment = .fill
+            avatarButton.setBackgroundImage(img, for: .normal)
+            avatarButton.setImage(nil, for: .normal)
+            avatarButton.contentHorizontalAlignment = .fill
+            avatarButton.contentVerticalAlignment = .fill
+        }
+        nameTextField.text = profileName
+        if let bday = profileBirthday {
+            let df = DateFormatter(); df.dateFormat = "dd.MM.yyyy"
+            birthdayTextField.text = df.string(from: bday)
+        }
+        selectedGender = Gender(rawValue: profileGender) ?? .other
     }
 
-    private func parseBirthday(_ text: String?) -> Date? {
-        let t = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty else { return nil }
-        let df = DateFormatter()
-        df.dateFormat = "dd.MM.yyyy"
-        return df.date(from: t)
-    }
+    // MARK: - Setup UI
 
     private func setupUI() {
-        view.addSubview(sectionHeaderView)
-        view.addSubview(collectionView)
+        view.addSubview(headerView)
+        headerView.addSubview(avatarButton)
+        headerView.addSubview(headerTitleLabel)
+        headerView.addSubview(gearButton)
+
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+
+        contentView.addSubview(profileSectionLabel)
+        contentView.addSubview(profileCard)
+
+        profileCard.addSubview(profilePhotoButton)
+        profileCard.addSubview(cameraOverlay)
+        profileCard.addSubview(nameLabel)
+        profileCard.addSubview(nameTextField)
+        profileCard.addSubview(birthdayLabel)
+        profileCard.addSubview(birthdayTextField)
+        profileCard.addSubview(genderLabel)
+        profileCard.addSubview(genderStack)
+        profileCard.addSubview(saveProfileButton)
+        profileCard.addSubview(profileSavedLabel)
+
+        contentView.addSubview(prefSectionLabel)
+        contentView.addSubview(notificationsRow)
+        contentView.addSubview(exportRow)
+        contentView.addSubview(darkModeRow)
     }
 
     private func setupConstraints() {
-        sectionHeaderView.snp.makeConstraints { make in
-            make.top.leading.trailing.equalToSuperview()
-            make.height.equalTo(130 * Constraint.xCoeff)
+        let hPad = 16 * Constraint.xCoeff
+
+        headerView.snp.makeConstraints {
+            $0.top.leading.trailing.equalTo(view.safeAreaLayoutGuide)
+            $0.height.equalTo(52 * Constraint.yCoeff)
+        }
+        avatarButton.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(hPad)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(40 * Constraint.yCoeff)
+        }
+        headerTitleLabel.snp.makeConstraints {
+            $0.center.equalToSuperview()
+        }
+        gearButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(hPad)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(36 * Constraint.yCoeff)
         }
 
-        collectionView.snp.makeConstraints { make in
-            make.top.equalTo(sectionHeaderView.snp.bottom)
-            make.leading.trailing.bottom.equalToSuperview()
+        scrollView.snp.makeConstraints {
+            $0.top.equalTo(headerView.snp.bottom)
+            $0.leading.trailing.bottom.equalToSuperview()
+        }
+        contentView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+            $0.width.equalTo(scrollView)
+        }
+
+        // Profile section
+        profileSectionLabel.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(hPad)
+        }
+        profileCard.snp.makeConstraints {
+            $0.top.equalTo(profileSectionLabel.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(hPad)
+        }
+        profilePhotoButton.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
+            $0.centerX.equalToSuperview()
+            $0.width.height.equalTo(80 * Constraint.yCoeff)
+        }
+        cameraOverlay.snp.makeConstraints {
+            $0.edges.equalTo(profilePhotoButton)
+        }
+        nameLabel.snp.makeConstraints {
+            $0.top.equalTo(profilePhotoButton.snp.bottom).offset(20 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+        }
+        nameTextField.snp.makeConstraints {
+            $0.top.equalTo(nameLabel.snp.bottom).offset(6 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.height.equalTo(46 * Constraint.yCoeff)
+        }
+        birthdayLabel.snp.makeConstraints {
+            $0.top.equalTo(nameTextField.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+        }
+        birthdayTextField.snp.makeConstraints {
+            $0.top.equalTo(birthdayLabel.snp.bottom).offset(6 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.height.equalTo(46 * Constraint.yCoeff)
+        }
+        genderLabel.snp.makeConstraints {
+            $0.top.equalTo(birthdayTextField.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+        }
+        genderStack.snp.makeConstraints {
+            $0.top.equalTo(genderLabel.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.height.equalTo(42 * Constraint.yCoeff)
+        }
+        saveProfileButton.snp.makeConstraints {
+            $0.top.equalTo(genderStack.snp.bottom).offset(18 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.height.equalTo(50 * Constraint.yCoeff)
+        }
+        profileSavedLabel.snp.makeConstraints {
+            $0.top.equalTo(saveProfileButton.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.centerX.equalToSuperview()
+            $0.bottom.equalToSuperview().inset(16 * Constraint.xCoeff)
+        }
+
+        // Preferences section
+        prefSectionLabel.snp.makeConstraints {
+            $0.top.equalTo(profileCard.snp.bottom).offset(24 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(hPad)
+        }
+        notificationsRow.snp.makeConstraints {
+            $0.top.equalTo(prefSectionLabel.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(hPad)
+            $0.height.equalTo(64 * Constraint.yCoeff)
+        }
+        exportRow.snp.makeConstraints {
+            $0.top.equalTo(notificationsRow.snp.bottom).offset(10 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(hPad)
+            $0.height.equalTo(64 * Constraint.yCoeff)
+        }
+        darkModeRow.snp.makeConstraints {
+            $0.top.equalTo(exportRow.snp.bottom).offset(10 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(hPad)
+            $0.height.equalTo(64 * Constraint.yCoeff)
+            $0.bottom.equalToSuperview().inset(32 * Constraint.xCoeff)
         }
     }
 
-    private func configureViews() {
-        sectionHeaderView.configure(
-            title: "Settings",
-            subtitle: "Manage your app preferences",
-            showsPlusButton: false
-        )
+    private func setupGenderButtons() {
+        boyButton.onTap   = { [weak self] in self?.selectedGender = .boy }
+        girlButton.onTap  = { [weak self] in self?.selectedGender = .girl }
+        otherButton.onTap = { [weak self] in self?.selectedGender = .other }
+        updateGenderButtons()
     }
 
-    private func showProfilePhotoOptions() {
+    private func updateGenderButtons() {
+        let purple = UIColor(hexString: "#6c5fcd")
+        boyButton.setSelected(selectedGender == .boy,   selectedColor: purple)
+        girlButton.setSelected(selectedGender == .girl,  selectedColor: purple)
+        otherButton.setSelected(selectedGender == .other, selectedColor: purple)
+    }
+
+    // MARK: - Actions
+
+    @objc private func avatarTapped() {
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         alert.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
-            self?.openImagePicker(sourceType: .camera)
+            self?.openPicker(sourceType: .camera)
         })
         alert.addAction(UIAlertAction(title: "Use Gallery", style: .default) { [weak self] _ in
-            self?.openImagePicker(sourceType: .photoLibrary)
+            self?.openPicker(sourceType: .photoLibrary)
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = view
-            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
-            popover.permittedArrowDirections = []
+        if let pop = alert.popoverPresentationController {
+            pop.sourceView = view
+            pop.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
         }
         present(alert, animated: true)
     }
 
-    private func openImagePicker(sourceType: UIImagePickerController.SourceType) {
-        guard UIImagePickerController.isSourceTypeAvailable(sourceType) else {
-            let message = (sourceType == .camera) ? "Camera is not available." : "Photo library is not available."
-            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            present(alert, animated: true)
-            return
-        }
+    private func openPicker(sourceType: UIImagePickerController.SourceType) {
+        guard UIImagePickerController.isSourceTypeAvailable(sourceType) else { return }
         let picker = UIImagePickerController()
         picker.sourceType = sourceType
         picker.delegate = self
-        picker.allowsEditing = false
         present(picker, animated: true)
     }
-}
 
-extension SettingsViewController: UICollectionViewDataSource {
-
-    func numberOfSections(in collectionView: UICollectionView) -> Int { 1 }
-
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        Item.allCases.count
+    @objc private func saveProfile() {
+        let name = (nameTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        profileName = name.isEmpty ? nil : name
+        profileGender = selectedGender.rawValue
+        BabyProfileStore.saveName(profileName)
+        BabyProfileStore.saveBirthday(profileBirthday)
+        BabyProfileStore.saveGender(profileGender)
+        view.endEditing(true)
+        showSaved()
     }
 
-    func collectionView(_ collectionView: UICollectionView,
-                        cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let item = Item(rawValue: indexPath.item)!
-
-        switch item {
-        case .babyProfile:
-            let cell = collectionView.dequeueReusableCell(
-                withReuseIdentifier: BabyProfileCell.reuseId,
-                for: indexPath
-            ) as! BabyProfileCell
-
-            cell.configure(
-                title: "Baby Profile",
-                icon: UIImage(systemName: item.iconName),
-                profileImage: profileImage,
-                nameText: profileName,
-                birthdayText: birthdayText(from: profileBirthday),
-                genderText: profileGender
-            )
-
-            cell.onTapSave = { [weak self] name, birthday, gender in
-                guard let self else { return }
-                self.profileName = name
-                self.profileBirthday = self.parseBirthday(birthday)
-                self.profileGender = gender
-
-                BabyProfileStore.saveName(self.profileName)
-                BabyProfileStore.saveBirthday(self.profileBirthday)
-                BabyProfileStore.saveGender(self.profileGender)
-
-                self.view.endEditing(true)
+    private func showSaved() {
+        profileSavedLabel.isHidden = false
+        profileSavedLabel.alpha = 0
+        UIView.animate(withDuration: 0.3) { self.profileSavedLabel.alpha = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            UIView.animate(withDuration: 0.3) { self.profileSavedLabel.alpha = 0 } completion: { _ in
+                self.profileSavedLabel.isHidden = true
             }
-
-            cell.onTapProfilePhoto = { [weak self] in
-                self?.showProfilePhotoOptions()
-            }
-
-            return cell
-
-        case .notifications, .exportData, .darkMode:
-            let cell = collectionView.dequeueReusableCell(
-                withReuseIdentifier: SettingsRowCell.reuseId,
-                for: indexPath
-            ) as! SettingsRowCell
-
-            cell.configure(
-                icon: UIImage(systemName: item.iconName),
-                title: item.title,
-                subtitle: item.subtitle
-            )
-            return cell
         }
     }
-}
 
-extension SettingsViewController: UICollectionViewDelegateFlowLayout {
+    @objc private func cancelDate() { birthdayTextField.resignFirstResponder() }
 
-    func collectionView(_ collectionView: UICollectionView,
-                        layout collectionViewLayout: UICollectionViewLayout,
-                        sizeForItemAt indexPath: IndexPath) -> CGSize {
+    @objc private func doneDate() {
+        let df = DateFormatter(); df.dateFormat = "dd.MM.yyyy"
+        birthdayTextField.text = df.string(from: datePicker.date)
+        profileBirthday = datePicker.date
+        birthdayTextField.resignFirstResponder()
+    }
 
-        let width = collectionView.bounds.width - 32 // 16 + 16 insets
-        let item = Item(rawValue: indexPath.item)!
+    @objc private func dateChanged(_ sender: UIDatePicker) {
+        let df = DateFormatter(); df.dateFormat = "dd.MM.yyyy"
+        birthdayTextField.text = df.string(from: sender.date)
+        profileBirthday = sender.date
+    }
 
-        switch item {
-        case .babyProfile:
-            return CGSize(width: width, height: 400)
-        case .notifications, .exportData, .darkMode:
-            return CGSize(width: width, height: 78)
+    // MARK: - Helpers
+
+    private func makeCard() -> UIView {
+        let v = UIView()
+        v.backgroundColor = .systemBackground
+        v.layer.cornerRadius = 16
+        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.shadowOpacity = 0.05
+        v.layer.shadowOffset = CGSize(width: 0, height: 2)
+        v.layer.shadowRadius = 6
+        return v
+    }
+
+    private func makeSectionTitle(_ text: String) -> UILabel {
+        let l = UILabel()
+        l.text = text
+        l.font = .systemFont(ofSize: 12, weight: .semibold)
+        l.textColor = .secondaryLabel
+        return l
+    }
+
+    private func makeFieldLabel(_ text: String) -> UILabel {
+        let l = UILabel()
+        l.text = text
+        l.font = .systemFont(ofSize: 13, weight: .semibold)
+        l.textColor = .secondaryLabel
+        return l
+    }
+
+    private func makeTextField(placeholder: String) -> UITextField {
+        let tf = UITextField()
+        tf.placeholder = placeholder
+        tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
+        tf.layer.cornerRadius = 10
+        tf.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
+        tf.leftViewMode = .always
+        tf.font = .systemFont(ofSize: 15)
+        tf.textColor = .label
+        return tf
+    }
+
+    private func makeSettingsRow(icon: String, title: String, subtitle: String) -> UIView {
+        let card = makeCard()
+
+        let iconBg = UIView()
+        iconBg.backgroundColor = UIColor(white: 0.94, alpha: 1)
+        iconBg.layer.cornerRadius = 10
+        card.addSubview(iconBg)
+
+        let iconImg = UIImageView(image: UIImage(systemName: icon))
+        iconImg.tintColor = .secondaryLabel
+        iconImg.contentMode = .scaleAspectFit
+        iconBg.addSubview(iconImg)
+
+        let titleL = UILabel()
+        titleL.text = title
+        titleL.font = .systemFont(ofSize: 15, weight: .semibold)
+        titleL.textColor = .label
+        card.addSubview(titleL)
+
+        let subL = UILabel()
+        subL.text = subtitle
+        subL.font = .systemFont(ofSize: 12)
+        subL.textColor = .secondaryLabel
+        card.addSubview(subL)
+
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = UIColor(white: 0.75, alpha: 1)
+        chevron.contentMode = .scaleAspectFit
+        card.addSubview(chevron)
+
+        iconBg.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(14 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(38 * Constraint.yCoeff)
         }
+        iconImg.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.width.height.equalTo(20 * Constraint.yCoeff)
+        }
+        chevron.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(14 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.equalTo(8 * Constraint.xCoeff)
+            $0.height.equalTo(14 * Constraint.yCoeff)
+        }
+        titleL.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(12 * Constraint.xCoeff)
+            $0.leading.equalTo(iconBg.snp.trailing).offset(12 * Constraint.xCoeff)
+            $0.trailing.lessThanOrEqualTo(chevron.snp.leading).offset(-8)
+        }
+        subL.snp.makeConstraints {
+            $0.top.equalTo(titleL.snp.bottom).offset(2 * Constraint.xCoeff)
+            $0.leading.equalTo(titleL)
+        }
+
+        return card
     }
 }
+
+// MARK: - Image picker
 
 extension SettingsViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+    func imagePickerController(_ picker: UIImagePickerController,
+                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
         picker.dismiss(animated: true)
         guard let image = info[.originalImage] as? UIImage else { return }
         profileImage = image
         BabyProfileStore.savePhoto(image)
-        collectionView.reloadItems(at: [IndexPath(item: Item.babyProfile.rawValue, section: 0)])
+
+        profilePhotoButton.setBackgroundImage(image, for: .normal)
+        profilePhotoButton.setImage(nil, for: .normal)
+        profilePhotoButton.contentHorizontalAlignment = .fill
+        profilePhotoButton.contentVerticalAlignment = .fill
+
+        avatarButton.setBackgroundImage(image, for: .normal)
+        avatarButton.setImage(nil, for: .normal)
+        avatarButton.contentHorizontalAlignment = .fill
+        avatarButton.contentVerticalAlignment = .fill
     }
 
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true)
     }
 }
-

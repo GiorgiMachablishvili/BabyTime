@@ -377,8 +377,16 @@ final class SleepHeaderView: UIView {
         nameLabel.text = name
         ageLabel.text = {
             guard let bd = birthday else { return "" }
-            let m = Calendar.current.dateComponents([.month], from: bd, to: Date()).month ?? 0
-            return "\(m) months old"
+            let cal = Calendar.current
+            let comps = cal.dateComponents([.year, .month, .day],
+                                           from: cal.startOfDay(for: bd),
+                                           to: cal.startOfDay(for: Date()))
+            let y = max(0, comps.year ?? 0)
+            let m = max(0, comps.month ?? 0)
+            let d = max(0, comps.day ?? 0)
+            if y == 0 && m == 0 { return "\(d) days old" }
+            if y == 0 { return "\(m) months \(d) days old" }
+            return "\(y) years \(m) months \(d) days old"
         }()
         if let photo {
             avatarImageView.image = photo; avatarInitialLabel.isHidden = true

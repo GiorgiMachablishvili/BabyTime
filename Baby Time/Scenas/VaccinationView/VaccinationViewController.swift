@@ -3,7 +3,7 @@ import SnapKit
 
 // MARK: - VaccinationViewController
 
-final class VaccinationViewController: UIViewController {
+final class VaccinationViewController: UIViewController, UIAdaptivePresentationControllerDelegate {
 
     // MARK: - Diffable types
 
@@ -55,6 +55,8 @@ final class VaccinationViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        let isPushed = navigationController?.viewControllers.count ?? 0 > 1
+        headerView.setBackVisible(isPushed)
         loadData()
     }
 
@@ -71,6 +73,19 @@ final class VaccinationViewController: UIViewController {
         collectionView.snp.makeConstraints {
             $0.top.equalTo(headerView.snp.bottom)
             $0.leading.trailing.bottom.equalToSuperview()
+        }
+
+        headerView.onCalendarTap = { [weak self] in self?.presentCalendar() }
+        headerView.onBackTap = { [weak self] in self?.navigationController?.popViewController(animated: true) }
+    }
+
+    private func presentCalendar() {
+        if #available(iOS 16.0, *) {
+            let vc = VaccinationCalendarViewController()
+            vc.onWillDismiss = { [weak self] in self?.loadData() }
+            let nav = UINavigationController(rootViewController: vc)
+            nav.presentationController?.delegate = self
+            present(nav, animated: true)
         }
     }
 
@@ -114,8 +129,9 @@ final class VaccinationViewController: UIViewController {
                     snap.reconfigureItems([Item.vaccine(id)])
                     self.dataSource.apply(snap, animatingDifferences: true)
                 }
-                cell.onActionTap = { [weak self] in self?.handleAction(for: id) }
-                cell.onDelete = { [weak self] in self?.deleteVaccine(id: id) }
+                cell.onActionTap = { [weak self] in self?.showVaccineOptions(vaccine: vaccine) }
+                cell.onDelete = { [weak self] in self?.showVaccineOptions(vaccine: vaccine) }
+                cell.onCardTap = { [weak self] in self?.showVaccineOptions(vaccine: vaccine) }
                 return cell
 
             case .addButton:
@@ -182,33 +198,44 @@ final class VaccinationViewController: UIViewController {
         }
 
         snap.appendItems([Item.addButton], toSection: .footer)
+        snap.reconfigureItems([Item.tabs])
         dataSource.apply(snap, animatingDifferences: true)
     }
 
     // MARK: - Actions
 
-    private func handleAction(for id: UUID) {
-        guard let vaccine = vaccines.first(where: { $0.id == id }) else { return }
-        switch vaccine.status {
-        case .overdue, .dueSoon:
-            markDone(id: id)
-        case .upcoming, .scheduled:
-            presentSchedule(id: id)
-        case .completed:
-            break
-        }
+    private func showVaccineOptions(vaccine: Vaccine) {
+        let alert = UIAlertController(title: vaccine.name, message: nil, preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: "Mark completed", style: .default) { [weak self] _ in
+            var v = vaccine
+            v.completedDate = Date()
+            VaccineStore.upsert(v)
+            self?.loadData()
+        })
+        alert.addAction(UIAlertAction(title: "Edit details", style: .default) { [weak self] _ in
+            self?.presentEditVaccine(vaccine)
+        })
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            VaccineStore.delete(id: vaccine.id)
+            self?.loadData()
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
     }
 
-    private func markDone(id: UUID) {
-        guard var v = vaccines.first(where: { $0.id == id }) else { return }
-        v.completedDate = Date()
-        VaccineStore.upsert(v)
-        loadData()
-    }
-
-    private func presentSchedule(id: UUID) {
-        let alert = UIAlertController(title: "Schedule Vaccine", message: "This feature lets you set an appointment date.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+    private func presentEditVaccine(_ vaccine: Vaccine) {
+        let alert = UIAlertController(title: "Edit Vaccine", message: nil, preferredStyle: .alert)
+        alert.addTextField { tf in tf.text = vaccine.name; tf.placeholder = "Name (e.g. MMR)" }
+        alert.addTextField { tf in tf.text = vaccine.fullName; tf.placeholder = "Full name" }
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self, weak alert] _ in
+            guard let self else { return }
+            var v = vaccine
+            if let name = alert?.textFields?[0].text, !name.isEmpty { v.name = name }
+            if let full = alert?.textFields?[1].text, !full.isEmpty { v.fullName = full }
+            VaccineStore.upsert(v)
+            self.loadData()
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)
     }
 
@@ -228,15 +255,6 @@ final class VaccinationViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func deleteVaccine(id: UUID) {
-        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-            VaccineStore.delete(id: id)
-            self?.loadData()
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
-    }
 }
 
 // MARK: - VaccineHeaderView
@@ -263,30 +281,59 @@ private final class VaccineHeaderView: UIView {
         l.textColor = UIColor(hexString: "#888888"); return l
     }()
     private let gearButton: UIButton = {
-        let b = UIButton(type: .system); b.setImage(UIImage(systemName: "gearshape"), for: .normal)
+        let b = UIButton(type: .system); b.setImage(UIImage(systemName: "calendar"), for: .normal)
         b.tintColor = UIColor(hexString: "#8b6dc4"); return b
     }()
+    private let backButton: UIButton = {
+        let b = UIButton(type: .system); b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
+        b.tintColor = UIColor(hexString: "#555555"); return b
+    }()
+
+    var onCalendarTap: (() -> Void)?
+    var onBackTap: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .viewsBackGourdColor
-        addSubview(avatarView); avatarView.addSubview(avatarImageView); avatarView.addSubview(avatarInitialLabel)
+        addSubview(backButton); addSubview(avatarView); avatarView.addSubview(avatarImageView); avatarView.addSubview(avatarInitialLabel)
         addSubview(nameLabel); addSubview(ageLabel); addSubview(gearButton)
+        backButton.snp.makeConstraints { $0.leading.equalToSuperview().inset(8 * Constraint.xCoeff); $0.centerY.equalTo(avatarView); $0.width.height.equalTo(36 * Constraint.yCoeff) }
         avatarView.snp.makeConstraints { $0.leading.equalToSuperview().inset(20 * Constraint.xCoeff); $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff); $0.width.height.equalTo(44 * Constraint.yCoeff) }
         avatarImageView.snp.makeConstraints { $0.edges.equalToSuperview() }
         avatarInitialLabel.snp.makeConstraints { $0.center.equalToSuperview() }
         nameLabel.snp.makeConstraints { $0.leading.equalTo(avatarView.snp.trailing).offset(10 * Constraint.xCoeff); $0.bottom.equalTo(avatarView.snp.centerY).offset(-1) }
         ageLabel.snp.makeConstraints { $0.leading.equalTo(nameLabel); $0.top.equalTo(avatarView.snp.centerY).offset(2) }
         gearButton.snp.makeConstraints { $0.trailing.equalToSuperview().inset(20 * Constraint.xCoeff); $0.centerY.equalTo(avatarView); $0.width.height.equalTo(36 * Constraint.yCoeff) }
+        gearButton.addTarget(self, action: #selector(calendarTapped), for: .touchUpInside)
+        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        backButton.isHidden = true
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    @objc private func calendarTapped() { onCalendarTap?() }
+    @objc private func backTapped() { onBackTap?() }
+
+    func setBackVisible(_ visible: Bool) {
+        backButton.isHidden = !visible
+        avatarView.snp.updateConstraints {
+            $0.leading.equalToSuperview().inset(visible ? 44 * Constraint.xCoeff : 20 * Constraint.xCoeff)
+        }
+    }
 
     func configure(name: String, birthday: Date?, photo: UIImage?) {
         nameLabel.text = name
         ageLabel.text = {
             guard let bd = birthday else { return "BabyTime" }
-            let m = Calendar.current.dateComponents([.month], from: bd, to: Date()).month ?? 0
-            return "\(name) • \(m) months old"
+            let cal = Calendar.current
+            let comps = cal.dateComponents([.year, .month, .day],
+                                           from: cal.startOfDay(for: bd),
+                                           to: cal.startOfDay(for: Date()))
+            let y = max(0, comps.year ?? 0)
+            let m = max(0, comps.month ?? 0)
+            let d = max(0, comps.day ?? 0)
+            if y == 0 && m == 0 { return "\(d) days" }
+            if y == 0 { return "\(m) months \(d) days" }
+            return "\(y) years \(m) months \(d) days"
         }()
         if let p = photo { avatarImageView.image = p; avatarInitialLabel.isHidden = true }
         else { avatarImageView.image = nil; avatarInitialLabel.text = String(name.prefix(1)).uppercased(); avatarInitialLabel.isHidden = false }
@@ -423,6 +470,10 @@ private final class VaccineTabsCell: UICollectionViewCell {
         contentView.addSubview(upcomingBtn)
         contentView.addSubview(completedBtn)
 
+        contentView.snp.makeConstraints {
+            $0.leading.trailing.top.bottom.equalToSuperview()
+            $0.height.equalTo(56 * Constraint.yCoeff)
+        }
         indicator.snp.makeConstraints {
             $0.top.bottom.equalToSuperview().inset(4 * Constraint.yCoeff)
             $0.leading.equalToSuperview().inset(4 * Constraint.xCoeff)
@@ -453,6 +504,9 @@ private final class VaccineTabsCell: UICollectionViewCell {
                 $0.leading.equalToSuperview().inset(4 * Constraint.xCoeff)
             }
             $0.width.equalToSuperview().dividedBy(2).offset(-6)
+        }
+        UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+            self.layoutIfNeeded()
         }
     }
 
@@ -490,6 +544,7 @@ final class VaccineCardCell: UICollectionViewCell {
     var onChevronTap: (() -> Void)?
     var onActionTap: (() -> Void)?
     var onDelete: (() -> Void)?
+    var onCardTap: (() -> Void)?
 
     // MARK: Subviews
 
@@ -600,12 +655,18 @@ final class VaccineCardCell: UICollectionViewCell {
         contentView.addSubview(menuButton)
 
         setupConstraints()
+
+        let tapArea = UIView()
+        tapArea.backgroundColor = .clear
+        contentView.insertSubview(tapArea, at: 0)
+        tapArea.snp.makeConstraints { $0.edges.equalToSuperview() }
+        tapArea.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardBodyTapped)))
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        onChevronTap = nil; onActionTap = nil; onDelete = nil
+        onChevronTap = nil; onActionTap = nil; onDelete = nil; onCardTap = nil
     }
 
     private func setupConstraints() {
@@ -728,13 +789,18 @@ final class VaccineCardCell: UICollectionViewCell {
             warningLabel.text = df.string(from: due)
             warningIcon.snp.remakeConstraints {
                 $0.leading.equalTo(nameLabel)
-                $0.top.equalTo(fullNameLabel.snp.bottom).offset(8 * Constraint.yCoeff)
+                $0.top.equalTo(fullNameLabel.snp.bottom).offset(6 * Constraint.yCoeff)
                 $0.width.height.equalTo(14 * Constraint.yCoeff)
+            }
+            warningLabel.snp.remakeConstraints {
+                $0.leading.equalTo(warningIcon.snp.trailing).offset(4 * Constraint.xCoeff)
+                $0.centerY.equalTo(warningIcon)
+                $0.trailing.lessThanOrEqualToSuperview().inset(16)
             }
         }
 
-        // Info rows
-        let topAnchor: ConstraintRelatableTarget = isOverdue ? warningLabel : fullNameLabel
+        // Info rows — use .snp.bottom anchors so rows stack below each other
+        let topAnchor: ConstraintItem = isOverdue ? warningLabel.snp.bottom : fullNameLabel.snp.bottom
 
         if status == .scheduled, let sched = vaccine.scheduledDate {
             var dateStr = df.string(from: sched)
@@ -768,15 +834,26 @@ final class VaccineCardCell: UICollectionViewCell {
 
         row1Icon.snp.remakeConstraints {
             $0.leading.equalTo(nameLabel)
-            $0.top.equalTo(topAnchor).offset(10 * Constraint.yCoeff)
+            $0.top.equalTo(topAnchor).offset(8 * Constraint.yCoeff)
             $0.width.height.equalTo(14 * Constraint.yCoeff)
         }
-        let secondRowTop: ConstraintRelatableTarget = row1Icon.isHidden ? topAnchor : row1Label
-        let secondRowOffset: CGFloat = row1Icon.isHidden ? 0 : (10 * Constraint.yCoeff)
+        row1Label.snp.remakeConstraints {
+            $0.leading.equalTo(row1Icon.snp.trailing).offset(6 * Constraint.xCoeff)
+            $0.centerY.equalTo(row1Icon)
+            $0.trailing.lessThanOrEqualTo(badgeView.snp.leading).offset(-8)
+        }
+
+        let row2Top: ConstraintItem = row1Icon.isHidden ? topAnchor : row1Icon.snp.bottom
+        let row2Offset: CGFloat = row1Icon.isHidden ? 0 : 8 * Constraint.yCoeff
         row2Icon.snp.remakeConstraints {
             $0.leading.equalTo(nameLabel)
-            $0.top.equalTo(secondRowTop).offset(secondRowOffset)
+            $0.top.equalTo(row2Top).offset(row2Offset)
             $0.width.height.equalTo(14 * Constraint.yCoeff)
+        }
+        row2Label.snp.remakeConstraints {
+            $0.leading.equalTo(row2Icon.snp.trailing).offset(6 * Constraint.xCoeff)
+            $0.centerY.equalTo(row2Icon)
+            $0.trailing.lessThanOrEqualToSuperview().inset(16)
         }
 
         // Expanded details
@@ -785,25 +862,25 @@ final class VaccineCardCell: UICollectionViewCell {
 
         doseRow.isHidden = vaccine.doseInfoString == nil
         doctorRow.isHidden = vaccine.doctorName == nil
-        if let dose = vaccine.doseInfoString { doseRow.text = "Dose Number:        \(dose)" }
-        if let doc = vaccine.doctorName { doctorRow.text = "Doctor:                   \(doc)" }
+        if let dose = vaccine.doseInfoString { doseRow.text = "Dose: \(dose)" }
+        if let doc = vaccine.doctorName { doctorRow.text = "Doctor: \(doc)" }
 
         separator.isHidden = !shouldShowDetails
         detailsStack.isHidden = !shouldShowDetails
 
-        let infoBottom: ConstraintRelatableTarget = {
-            if !row2Icon.isHidden { return row2Label }
-            if !row1Icon.isHidden { return row1Label }
-            if !warningLabel.isHidden { return warningLabel }
-            return fullNameLabel
+        // Determine the bottom of all visible info rows
+        let infoBottom: ConstraintItem = {
+            if !row2Icon.isHidden { return row2Icon.snp.bottom }
+            if !row1Icon.isHidden { return row1Icon.snp.bottom }
+            if !warningIcon.isHidden { return warningIcon.snp.bottom }
+            return fullNameLabel.snp.bottom
         }()
-        let infoBottomOffset: CGFloat = 10 * Constraint.yCoeff
 
         if shouldShowDetails {
             separator.snp.remakeConstraints {
                 $0.leading.equalTo(nameLabel)
                 $0.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
-                $0.top.equalTo(infoBottom).offset(infoBottomOffset + 4 * Constraint.yCoeff)
+                $0.top.equalTo(infoBottom).offset(12 * Constraint.yCoeff)
                 $0.height.equalTo(1)
             }
             detailsStack.snp.remakeConstraints {
@@ -811,24 +888,14 @@ final class VaccineCardCell: UICollectionViewCell {
                 $0.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
                 $0.top.equalTo(separator.snp.bottom).offset(8 * Constraint.yCoeff)
             }
-            actionButton.snp.remakeConstraints {
-                $0.leading.equalTo(nameLabel)
-                $0.height.equalTo(42 * Constraint.yCoeff)
-                $0.top.equalTo(detailsStack.snp.bottom).offset(12 * Constraint.yCoeff)
-                $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
-            }
-        } else {
-            actionButton.snp.remakeConstraints {
-                $0.leading.equalTo(nameLabel)
-                $0.height.equalTo(42 * Constraint.yCoeff)
-                $0.top.equalTo(infoBottom).offset(infoBottomOffset)
-                $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
-            }
         }
 
         // Action button
         showChevron = hasDetails && status != .completed
         chevronButton.isHidden = !showChevron
+        actionButton.isHidden = false
+
+        let actionTop: ConstraintItem = shouldShowDetails ? detailsStack.snp.bottom : infoBottom
 
         switch status {
         case .overdue:
@@ -839,8 +906,7 @@ final class VaccineCardCell: UICollectionViewCell {
             actionButton.snp.remakeConstraints {
                 $0.leading.trailing.equalToSuperview().inset(14 * Constraint.xCoeff)
                 $0.height.equalTo(42 * Constraint.yCoeff)
-                $0.top.equalTo(infoBottom).offset(shouldShowDetails ? 0 : infoBottomOffset)
-                if shouldShowDetails { $0.top.equalTo(detailsStack.snp.bottom).offset(12 * Constraint.yCoeff) }
+                $0.top.equalTo(actionTop).offset(12 * Constraint.yCoeff)
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
             }
         case .dueSoon:
@@ -852,13 +918,21 @@ final class VaccineCardCell: UICollectionViewCell {
             actionButton.snp.remakeConstraints {
                 $0.leading.equalTo(nameLabel)
                 $0.height.equalTo(42 * Constraint.yCoeff)
-                $0.top.equalTo(infoBottom).offset(infoBottomOffset)
+                $0.top.equalTo(actionTop).offset(12 * Constraint.yCoeff)
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
                 if showChevron { $0.trailing.equalTo(chevronButton.snp.leading).offset(-8 * Constraint.xCoeff) }
                 else { $0.trailing.equalToSuperview().inset(14 * Constraint.xCoeff) }
             }
         case .scheduled:
-            actionButton.setTitle("Edit details", for: .normal)
+            actionButton.isHidden = true
+            actionButton.snp.remakeConstraints {
+                $0.leading.equalTo(nameLabel)
+                $0.height.equalTo(0)
+                $0.top.equalTo(infoBottom).offset(12 * Constraint.yCoeff)
+                $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
+            }
+        case .upcoming:
+            actionButton.setTitle("Options", for: .normal)
             actionButton.backgroundColor = .clear
             actionButton.setTitleColor(UIColor(hexString: "#333333"), for: .normal)
             actionButton.layer.borderWidth = 1
@@ -866,15 +940,15 @@ final class VaccineCardCell: UICollectionViewCell {
             actionButton.snp.remakeConstraints {
                 $0.leading.trailing.equalToSuperview().inset(14 * Constraint.xCoeff)
                 $0.height.equalTo(42 * Constraint.yCoeff)
-                $0.top.equalTo(infoBottom).offset(infoBottomOffset)
+                $0.top.equalTo(actionTop).offset(12 * Constraint.yCoeff)
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
             }
-        default:
+        default: // .completed
             actionButton.isHidden = true
             actionButton.snp.remakeConstraints {
                 $0.leading.equalTo(nameLabel)
                 $0.height.equalTo(0)
-                $0.top.equalTo(infoBottom).offset(infoBottomOffset)
+                $0.top.equalTo(infoBottom).offset(12 * Constraint.yCoeff)
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
             }
         }
@@ -886,6 +960,7 @@ final class VaccineCardCell: UICollectionViewCell {
     @objc private func actionTapped() { onActionTap?() }
     @objc private func chevronTapped() { onChevronTap?() }
     @objc private func menuTapped() { onDelete?() }
+    @objc private func cardBodyTapped() { onCardTap?() }
 }
 
 // MARK: - VaccineAddButtonCell

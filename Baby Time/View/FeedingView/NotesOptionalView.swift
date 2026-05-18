@@ -68,6 +68,11 @@ class NotesOptionalView: UIView {
             $0.leading.equalToSuperview().offset(14)
         }
     }
+
+    func reset() {
+        notesTextView.text = ""
+        placeholderLabel.isHidden = false
+    }
 }
 
 extension NotesOptionalView: UITextViewDelegate {

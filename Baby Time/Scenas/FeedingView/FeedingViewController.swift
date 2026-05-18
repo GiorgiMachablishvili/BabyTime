@@ -20,6 +20,7 @@ final class FeedingViewController: UIViewController {
 
     private var logEntries: [FeedingLogEntry] = []
     private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
+    private var expandedLogIDs: Set<UUID> = []
 
     // MARK: - Views
 
@@ -152,9 +153,22 @@ final class FeedingViewController: UIViewController {
             case .log(let id):
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: FeedingViewCell.reuseId, for: indexPath) as! FeedingViewCell
                 if let entry = self.logEntries.first(where: { $0.id == id }) {
-                    cell.configure(entry: entry)
-                    cell.onMenuTap = { [weak self] in
-                        self?.confirmDelete(id: id)
+                    cell.configure(entry: entry, isExpanded: self.expandedLogIDs.contains(id))
+                    cell.onMenuTap = { [weak self] in self?.confirmDelete(id: id) }
+                    cell.onTap = { [weak self] in
+                        guard let self else { return }
+                        if self.expandedLogIDs.contains(id) {
+                            self.expandedLogIDs.remove(id)
+                        } else {
+                            self.expandedLogIDs.insert(id)
+                        }
+                        if #available(iOS 15.0, *) {
+                            var snap = self.dataSource.snapshot()
+                            snap.reconfigureItems([.log(id)])
+                            self.dataSource.apply(snap, animatingDifferences: true)
+                        } else {
+                            self.applySnapshot()
+                        }
                     }
                 }
                 return cell
@@ -215,7 +229,7 @@ final class FeedingViewController: UIViewController {
                 return sec
 
             case .todayLog:
-                let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(72 * Constraint.yCoeff)))
+                let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(80 * Constraint.yCoeff)))
                 let group = NSCollectionLayoutGroup.vertical(
                     layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(300 * Constraint.yCoeff)),
                     subitems: [item]
@@ -456,14 +470,26 @@ final class FeedingHeaderView: UIView {
             avatarInitialLabel.isHidden = false
         }
         if let birthday {
-            let months = Calendar.current.dateComponents([.month], from: birthday, to: Date()).month ?? 0
-            ageLabel.text = "\(months) months old"
+            ageLabel.text = Self.ageText(from: birthday)
         } else {
             ageLabel.text = ""
         }
     }
 
     @objc private func calTapped() { onCalendarTap?() }
+
+    static func ageText(from birthday: Date) -> String {
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.year, .month, .day],
+                                       from: cal.startOfDay(for: birthday),
+                                       to: cal.startOfDay(for: Date()))
+        let y = max(0, comps.year ?? 0)
+        let m = max(0, comps.month ?? 0)
+        let d = max(0, comps.day ?? 0)
+        if y == 0 && m == 0 { return "\(d) days old" }
+        if y == 0 { return "\(m) months \(d) days old" }
+        return "\(y) years \(m) months \(d) days old"
+    }
 }
 
 // MARK: - FeedingWeekCalendarCell

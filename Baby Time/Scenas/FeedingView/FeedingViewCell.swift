@@ -5,6 +5,7 @@ final class FeedingViewCell: UICollectionViewCell {
     static let reuseId = "FeedingViewCell"
 
     var onMenuTap: (() -> Void)?
+    var onTap: (() -> Void)?
 
     // MARK: - Time column
 
@@ -34,10 +35,7 @@ final class FeedingViewCell: UICollectionViewCell {
         return v
     }()
 
-    private let accentStrip: UIView = {
-        let v = UIView()
-        return v
-    }()
+    private let accentStrip = UIView()
 
     private let typeBadge: UIView = {
         let v = UIView()
@@ -54,8 +52,16 @@ final class FeedingViewCell: UICollectionViewCell {
 
     private let amountLabel: UILabel = {
         let l = UILabel()
-        l.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .regular)
+        l.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
         l.textColor = UIColor(hexString: "#666666")
+        return l
+    }()
+
+    private let noteLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
+        l.textColor = UIColor(hexString: "#888888")
+        l.numberOfLines = 1
         return l
     }()
 
@@ -87,10 +93,14 @@ final class FeedingViewCell: UICollectionViewCell {
         card.addSubview(typeBadge)
         typeBadge.addSubview(typeBadgeLabel)
         card.addSubview(amountLabel)
+        card.addSubview(noteLabel)
         card.addSubview(checkmark)
         card.addSubview(menuButton)
 
-        setupConstraints()
+        setupStaticConstraints()
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(cardTapped))
+        card.addGestureRecognizer(tap)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -98,24 +108,39 @@ final class FeedingViewCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         onMenuTap = nil
+        onTap = nil
         amountLabel.text = nil
+        noteLabel.text = nil
+        noteLabel.numberOfLines = 1
+    }
+
+    // MARK: - Self-sizing
+
+    override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
+        let attrs = super.preferredLayoutAttributesFitting(layoutAttributes)
+        let size = contentView.systemLayoutSizeFitting(
+            CGSize(width: layoutAttributes.bounds.width, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        attrs.bounds.size = size
+        return attrs
     }
 
     // MARK: - Layout
 
-    private func setupConstraints() {
+    private func setupStaticConstraints() {
         let timeW: CGFloat = 44 * Constraint.xCoeff
-        let stripW: CGFloat = 5 * Constraint.xCoeff
 
         timeHourLabel.snp.makeConstraints {
             $0.leading.equalToSuperview()
             $0.width.equalTo(timeW)
-            $0.bottom.equalTo(contentView.snp.centerY).offset(-1)
+            $0.top.equalToSuperview().offset(14 * Constraint.yCoeff)
         }
         timeAmPmLabel.snp.makeConstraints {
             $0.leading.equalToSuperview()
             $0.width.equalTo(timeW)
-            $0.top.equalTo(contentView.snp.centerY).offset(1)
+            $0.top.equalTo(timeHourLabel.snp.bottom).offset(2)
         }
 
         card.snp.makeConstraints {
@@ -125,24 +150,23 @@ final class FeedingViewCell: UICollectionViewCell {
 
         accentStrip.snp.makeConstraints {
             $0.leading.top.bottom.equalToSuperview()
-            $0.width.equalTo(stripW)
+            $0.width.equalTo(5 * Constraint.xCoeff)
         }
 
         menuButton.snp.makeConstraints {
             $0.trailing.equalToSuperview().inset(12 * Constraint.xCoeff)
-            $0.centerY.equalToSuperview()
+            $0.top.equalToSuperview().offset(14 * Constraint.yCoeff)
             $0.width.height.equalTo(28 * Constraint.yCoeff)
         }
-
         checkmark.snp.makeConstraints {
             $0.trailing.equalTo(menuButton.snp.leading).offset(-6 * Constraint.xCoeff)
-            $0.centerY.equalToSuperview()
+            $0.centerY.equalTo(menuButton)
             $0.width.height.equalTo(20 * Constraint.yCoeff)
         }
 
         typeBadge.snp.makeConstraints {
             $0.leading.equalTo(accentStrip.snp.trailing).offset(12 * Constraint.xCoeff)
-            $0.centerY.equalToSuperview().offset(-10 * Constraint.yCoeff)
+            $0.top.equalToSuperview().offset(14 * Constraint.yCoeff)
         }
         typeBadgeLabel.snp.makeConstraints {
             $0.top.bottom.equalToSuperview().inset(4 * Constraint.yCoeff)
@@ -150,15 +174,30 @@ final class FeedingViewCell: UICollectionViewCell {
         }
 
         amountLabel.snp.makeConstraints {
-            $0.leading.equalTo(typeBadge.snp.leading)
+            $0.leading.equalTo(typeBadge)
             $0.top.equalTo(typeBadge.snp.bottom).offset(4 * Constraint.yCoeff)
             $0.trailing.lessThanOrEqualTo(checkmark.snp.leading).offset(-8 * Constraint.xCoeff)
         }
     }
 
+    // Remade on every configure call to reflect hasNote / hasVolume state
+    private func remakeNoteConstraints(hasVolume: Bool, hasNote: Bool) {
+        noteLabel.snp.remakeConstraints {
+            if hasVolume {
+                $0.top.equalTo(amountLabel.snp.bottom).offset(4 * Constraint.yCoeff)
+            } else {
+                $0.top.equalTo(typeBadge.snp.bottom).offset(4 * Constraint.yCoeff)
+            }
+            $0.leading.equalTo(typeBadge)
+            $0.trailing.lessThanOrEqualTo(checkmark.snp.leading).offset(-8 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
+            if !hasNote { $0.height.equalTo(0) }
+        }
+    }
+
     // MARK: - Configure
 
-    func configure(entry: FeedingLogEntry) {
+    func configure(entry: FeedingLogEntry, isExpanded: Bool) {
         let date = Date(timeIntervalSince1970: entry.savedAtEpochSeconds ?? 0)
         let tf = DateFormatter()
         tf.dateFormat = "h:mm"
@@ -189,25 +228,27 @@ final class FeedingViewCell: UICollectionViewCell {
             typeBadgeLabel.text = "Solids"
         }
 
-        if let vol = entry.volumeText, !vol.isEmpty {
-            amountLabel.text = vol
-            amountLabel.isHidden = false
-        } else if let notes = entry.notesText, !notes.isEmpty {
-            amountLabel.text = notes
-            amountLabel.isHidden = false
-        } else {
-            amountLabel.isHidden = true
-        }
+        let volume = entry.volumeText.flatMap { $0.isEmpty ? nil : $0 }
+        let note   = entry.notesText.flatMap  { $0.isEmpty ? nil : $0 }
+
+        amountLabel.text = volume
+        amountLabel.isHidden = volume == nil
+
+        noteLabel.text = note
+        noteLabel.numberOfLines = isExpanded ? 0 : 1
+
+        remakeNoteConstraints(hasVolume: volume != nil, hasNote: note != nil)
     }
 
-    @objc private func menuTapped() { onMenuTap?() }
+    // MARK: - Actions
 
-    // MARK: - ViewModel (kept for FeedingLogStore compatibility)
+    @objc private func menuTapped() { onMenuTap?() }
+    @objc private func cardTapped() { onTap?() }
+
+    // MARK: - ViewModel
 
     struct ViewModel {
-        enum FeedingType {
-            case breast, bottle, formula, solid
-        }
+        enum FeedingType { case breast, bottle, formula, solid }
         let type: FeedingType
         let volumeText: String?
         let notesText: String?

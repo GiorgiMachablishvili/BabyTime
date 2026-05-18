@@ -311,6 +311,7 @@ class FeedingView: UIView {
     func configure(initialType: FeedingTypeView.FeedingType, showTypePicker: Bool = true) {
         timeButtonView.reset()
         volumeButtonView.reset()
+        notesOptionalView.reset()
         currentFeedingType = initialType
 
         feedingTypeView.isHidden = !showTypePicker
