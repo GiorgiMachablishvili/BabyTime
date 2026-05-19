@@ -120,10 +120,10 @@ final class MainViewController: UIViewController {
     // History row
     private lazy var historyCard: UIView = {
         let v = UIView()
-        v.backgroundColor = .systemBackground
-        v.layer.cornerRadius = 16
+        v.backgroundColor = UIColor(hexString: "#f0eef8")
+        v.layer.cornerRadius = 20
         v.layer.shadowColor = UIColor.black.cgColor
-        v.layer.shadowOpacity = 0.04
+        v.layer.shadowOpacity = 0.05
         v.layer.shadowRadius = 6
         v.layer.shadowOffset = CGSize(width: 0, height: 2)
         let tap = UITapGestureRecognizer(target: self, action: #selector(historyTapped))
@@ -133,13 +133,13 @@ final class MainViewController: UIViewController {
     }()
     private lazy var historyIconBg: UIView = {
         let v = UIView()
-        v.backgroundColor = UIColor(hexString: "#7a8a9a").withAlphaComponent(0.12)
+        v.backgroundColor = UIColor(hexString: "#8b6dc4").withAlphaComponent(0.15)
         v.layer.cornerRadius = 20
         return v
     }()
     private lazy var historyIconView: UIImageView = {
-        let v = UIImageView(image: UIImage(systemName: "star.square"))
-        v.tintColor = UIColor(hexString: "#7a8a9a")
+        let v = UIImageView(image: UIImage(systemName: "camera.fill"))
+        v.tintColor = UIColor(hexString: "#8b6dc4")
         v.contentMode = .scaleAspectFit
         return v
     }()
@@ -152,15 +152,11 @@ final class MainViewController: UIViewController {
     }()
     private lazy var historyBottomLabel: UILabel = {
         let v = UILabel()
-        v.text = "No active issues"
-        v.font = .systemFont(ofSize: 16, weight: .semibold)
+        v.text = "Baby memories"
+        v.font = .systemFont(ofSize: 18, weight: .bold)
         v.textColor = UIColor(hexString: "#222222")
-        return v
-    }()
-    private lazy var historyChevron: UIImageView = {
-        let v = UIImageView(image: UIImage(systemName: "chevron.right"))
-        v.tintColor = UIColor(hexString: "#aaaaaa")
-        v.contentMode = .scaleAspectFit
+        v.adjustsFontSizeToFitWidth = true
+        v.minimumScaleFactor = 0.7
         return v
     }()
     // Development section
@@ -255,7 +251,6 @@ final class MainViewController: UIViewController {
         historyIconBg.addSubview(historyIconView)
         historyCard.addSubview(historyTopLabel)
         historyCard.addSubview(historyBottomLabel)
-        historyCard.addSubview(historyChevron)
         // Development
         contentView.addSubview(developmentTitleLabel)
         contentView.addSubview(milestoneCard)
@@ -340,15 +335,15 @@ final class MainViewController: UIViewController {
             $0.top.equalTo(profileContainer.snp.bottom).offset(24 * Constraint.xCoeff)
             $0.leading.trailing.equalToSuperview().inset(pad)
         }
-        // History card
+        // History card — same size as one grid card
         historyCard.snp.makeConstraints {
             $0.top.equalTo(gridContainer.snp.bottom).offset(12 * Constraint.xCoeff)
-            $0.leading.trailing.equalToSuperview().inset(pad)
-            $0.height.equalTo(70 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().inset(pad)
+            $0.width.equalTo(gridContainer.snp.width).multipliedBy(0.5).offset(-6)
+            $0.height.equalTo(historyCard.snp.width).multipliedBy(0.95)
         }
         historyIconBg.snp.makeConstraints {
-            $0.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
-            $0.centerY.equalToSuperview()
+            $0.top.leading.equalToSuperview().inset(16 * Constraint.yCoeff)
             $0.width.height.equalTo(40 * Constraint.yCoeff)
         }
         historyIconView.snp.makeConstraints {
@@ -356,18 +351,15 @@ final class MainViewController: UIViewController {
             $0.width.height.equalTo(20 * Constraint.yCoeff)
         }
         historyTopLabel.snp.makeConstraints {
-            $0.leading.equalTo(historyIconBg.snp.trailing).offset(12 * Constraint.yCoeff)
-            $0.top.equalToSuperview().offset(16 * Constraint.xCoeff)
+            $0.top.equalTo(historyIconBg.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
+            $0.trailing.lessThanOrEqualToSuperview().offset(-8 * Constraint.yCoeff)
         }
         historyBottomLabel.snp.makeConstraints {
-            $0.leading.equalTo(historyTopLabel)
-            $0.top.equalTo(historyTopLabel.snp.bottom).offset(2 * Constraint.xCoeff)
-        }
-        historyChevron.snp.makeConstraints {
-            $0.trailing.equalToSuperview().offset(-16 * Constraint.yCoeff)
-            $0.centerY.equalToSuperview()
-            $0.width.equalTo(8 * Constraint.yCoeff)
-            $0.height.equalTo(14 * Constraint.yCoeff)
+            $0.top.equalTo(historyTopLabel.snp.bottom).offset(4 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(16 * Constraint.yCoeff)
+            $0.trailing.lessThanOrEqualToSuperview().offset(-8 * Constraint.yCoeff)
+            $0.bottom.lessThanOrEqualToSuperview().offset(-14 * Constraint.xCoeff)
         }
         // Development
         developmentTitleLabel.snp.makeConstraints {
@@ -465,7 +457,9 @@ final class MainViewController: UIViewController {
         tabBarController?.selectedIndex = 4
     }
     @objc private func historyTapped() {
-        navigationController?.pushViewController(HistoryOfIllnessViewController(), animated: true)
+        let vc = MemoryViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(vc, animated: true)
     }
     private func handleTap(_ item: GridItem) {
         switch item {

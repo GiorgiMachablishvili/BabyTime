@@ -932,15 +932,11 @@ final class VaccineCardCell: UICollectionViewCell {
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
             }
         case .upcoming:
-            actionButton.setTitle("Options", for: .normal)
-            actionButton.backgroundColor = .clear
-            actionButton.setTitleColor(UIColor(hexString: "#333333"), for: .normal)
-            actionButton.layer.borderWidth = 1
-            actionButton.layer.borderColor = UIColor(hexString: "#dddddd").cgColor
+            actionButton.isHidden = true
             actionButton.snp.remakeConstraints {
-                $0.leading.trailing.equalToSuperview().inset(14 * Constraint.xCoeff)
-                $0.height.equalTo(42 * Constraint.yCoeff)
-                $0.top.equalTo(actionTop).offset(12 * Constraint.yCoeff)
+                $0.leading.equalTo(nameLabel)
+                $0.height.equalTo(0)
+                $0.top.equalTo(infoBottom).offset(12 * Constraint.yCoeff)
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
             }
         default: // .completed

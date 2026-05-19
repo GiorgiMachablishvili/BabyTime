@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Baby Time needs camera access to take a profile photo.</string>
+	<string>My Baby needs camera access to take a profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Baby Time needs photo library access to choose a profile photo.</string>
+	<string>My Baby needs photo library access to choose a profile photo.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

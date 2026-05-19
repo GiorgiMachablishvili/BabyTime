@@ -1,6 +1,6 @@
 //
 //  WelcomeViewController.swift
-//  Baby Time
+//  My Baby
 //
 
 import UIKit

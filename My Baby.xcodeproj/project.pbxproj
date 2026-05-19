@@ -16,50 +16,50 @@
 			containerPortal = E3FBC6D92EFAC98700DF2844 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = E3FBC6E02EFAC98700DF2844;
-			remoteInfo = "Baby Time";
+			remoteInfo = "My Baby";
 		};
 		E3FBC7052EFAC98900DF2844 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E3FBC6D92EFAC98700DF2844 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = E3FBC6E02EFAC98700DF2844;
-			remoteInfo = "Baby Time";
+			remoteInfo = "My Baby";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		E3FBC6E12EFAC98700DF2844 /* Baby Time.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Baby Time.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		E3FBC6FA2EFAC98900DF2844 /* Baby TimeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Baby TimeTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		E3FBC7042EFAC98900DF2844 /* Baby TimeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Baby TimeUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3FBC6E12EFAC98700DF2844 /* My Baby.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "My Baby.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3FBC6FA2EFAC98900DF2844 /* My BabyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "My BabyTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3FBC7042EFAC98900DF2844 /* My BabyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "My BabyUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		ABCDEF1234567890ABCDEF12 /* Exceptions for "Baby Time" folder in "Baby Time" target */ = {
+		ABCDEF1234567890ABCDEF12 /* Exceptions for "My Baby" folder in "My Baby" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = E3FBC6E02EFAC98700DF2844 /* Baby Time */;
+			target = E3FBC6E02EFAC98700DF2844 /* My Baby */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		E3FBC6E32EFAC98700DF2844 /* Baby Time */ = {
+		E3FBC6E32EFAC98700DF2844 /* My Baby */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				ABCDEF1234567890ABCDEF12 /* Exceptions for "Baby Time" folder in "Baby Time" target */,
+				ABCDEF1234567890ABCDEF12 /* Exceptions for "My Baby" folder in "My Baby" target */,
 			);
-			path = "Baby Time";
+			path = "My Baby";
 			sourceTree = "<group>";
 		};
-		E3FBC6FD2EFAC98900DF2844 /* Baby TimeTests */ = {
+		E3FBC6FD2EFAC98900DF2844 /* My BabyTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Baby TimeTests";
+			path = "My BabyTests";
 			sourceTree = "<group>";
 		};
-		E3FBC7072EFAC98900DF2844 /* Baby TimeUITests */ = {
+		E3FBC7072EFAC98900DF2844 /* My BabyUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Baby TimeUITests";
+			path = "My BabyUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -93,9 +93,9 @@
 		E3FBC6D82EFAC98700DF2844 = {
 			isa = PBXGroup;
 			children = (
-				E3FBC6E32EFAC98700DF2844 /* Baby Time */,
-				E3FBC6FD2EFAC98900DF2844 /* Baby TimeTests */,
-				E3FBC7072EFAC98900DF2844 /* Baby TimeUITests */,
+				E3FBC6E32EFAC98700DF2844 /* My Baby */,
+				E3FBC6FD2EFAC98900DF2844 /* My BabyTests */,
+				E3FBC7072EFAC98900DF2844 /* My BabyUITests */,
 				E3FBC6E22EFAC98700DF2844 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -103,9 +103,9 @@
 		E3FBC6E22EFAC98700DF2844 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E3FBC6E12EFAC98700DF2844 /* Baby Time.app */,
-				E3FBC6FA2EFAC98900DF2844 /* Baby TimeTests.xctest */,
-				E3FBC7042EFAC98900DF2844 /* Baby TimeUITests.xctest */,
+				E3FBC6E12EFAC98700DF2844 /* My Baby.app */,
+				E3FBC6FA2EFAC98900DF2844 /* My BabyTests.xctest */,
+				E3FBC7042EFAC98900DF2844 /* My BabyUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -113,9 +113,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		E3FBC6E02EFAC98700DF2844 /* Baby Time */ = {
+		E3FBC6E02EFAC98700DF2844 /* My Baby */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E3FBC70D2EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "Baby Time" */;
+			buildConfigurationList = E3FBC70D2EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "My Baby" */;
 			buildPhases = (
 				E3FBC6DD2EFAC98700DF2844 /* Sources */,
 				E3FBC6DE2EFAC98700DF2844 /* Frameworks */,
@@ -126,19 +126,19 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				E3FBC6E32EFAC98700DF2844 /* Baby Time */,
+				E3FBC6E32EFAC98700DF2844 /* My Baby */,
 			);
-			name = "Baby Time";
+			name = "My Baby";
 			packageProductDependencies = (
 				E3FBC7192EFAC9E600DF2844 /* SnapKit */,
 			);
-			productName = "Baby Time";
-			productReference = E3FBC6E12EFAC98700DF2844 /* Baby Time.app */;
+			productName = "My Baby";
+			productReference = E3FBC6E12EFAC98700DF2844 /* My Baby.app */;
 			productType = "com.apple.product-type.application";
 		};
-		E3FBC6F92EFAC98900DF2844 /* Baby TimeTests */ = {
+		E3FBC6F92EFAC98900DF2844 /* My BabyTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E3FBC7122EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "Baby TimeTests" */;
+			buildConfigurationList = E3FBC7122EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "My BabyTests" */;
 			buildPhases = (
 				E3FBC6F62EFAC98900DF2844 /* Sources */,
 				E3FBC6F72EFAC98900DF2844 /* Frameworks */,
@@ -150,18 +150,18 @@
 				E3FBC6FC2EFAC98900DF2844 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				E3FBC6FD2EFAC98900DF2844 /* Baby TimeTests */,
+				E3FBC6FD2EFAC98900DF2844 /* My BabyTests */,
 			);
-			name = "Baby TimeTests";
+			name = "My BabyTests";
 			packageProductDependencies = (
 			);
-			productName = "Baby TimeTests";
-			productReference = E3FBC6FA2EFAC98900DF2844 /* Baby TimeTests.xctest */;
+			productName = "My BabyTests";
+			productReference = E3FBC6FA2EFAC98900DF2844 /* My BabyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		E3FBC7032EFAC98900DF2844 /* Baby TimeUITests */ = {
+		E3FBC7032EFAC98900DF2844 /* My BabyUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E3FBC7152EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "Baby TimeUITests" */;
+			buildConfigurationList = E3FBC7152EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "My BabyUITests" */;
 			buildPhases = (
 				E3FBC7002EFAC98900DF2844 /* Sources */,
 				E3FBC7012EFAC98900DF2844 /* Frameworks */,
@@ -173,13 +173,13 @@
 				E3FBC7062EFAC98900DF2844 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				E3FBC7072EFAC98900DF2844 /* Baby TimeUITests */,
+				E3FBC7072EFAC98900DF2844 /* My BabyUITests */,
 			);
-			name = "Baby TimeUITests";
+			name = "My BabyUITests";
 			packageProductDependencies = (
 			);
-			productName = "Baby TimeUITests";
-			productReference = E3FBC7042EFAC98900DF2844 /* Baby TimeUITests.xctest */;
+			productName = "My BabyUITests";
+			productReference = E3FBC7042EFAC98900DF2844 /* My BabyUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -205,7 +205,7 @@
 					};
 				};
 			};
-			buildConfigurationList = E3FBC6DC2EFAC98700DF2844 /* Build configuration list for PBXProject "Baby Time" */;
+			buildConfigurationList = E3FBC6DC2EFAC98700DF2844 /* Build configuration list for PBXProject "My Baby" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -223,9 +223,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				E3FBC6E02EFAC98700DF2844 /* Baby Time */,
-				E3FBC6F92EFAC98900DF2844 /* Baby TimeTests */,
-				E3FBC7032EFAC98900DF2844 /* Baby TimeUITests */,
+				E3FBC6E02EFAC98700DF2844 /* My Baby */,
+				E3FBC6F92EFAC98900DF2844 /* My BabyTests */,
+				E3FBC7032EFAC98900DF2844 /* My BabyUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -281,12 +281,12 @@
 /* Begin PBXTargetDependency section */
 		E3FBC6FC2EFAC98900DF2844 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E3FBC6E02EFAC98700DF2844 /* Baby Time */;
+			target = E3FBC6E02EFAC98700DF2844 /* My Baby */;
 			targetProxy = E3FBC6FB2EFAC98900DF2844 /* PBXContainerItemProxy */;
 		};
 		E3FBC7062EFAC98900DF2844 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E3FBC6E02EFAC98700DF2844 /* Baby Time */;
+			target = E3FBC6E02EFAC98700DF2844 /* My Baby */;
 			targetProxy = E3FBC7052EFAC98900DF2844 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -301,7 +301,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z8QVL3H8TQ;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Baby Time/Info.plist";
+				INFOPLIST_FILE = "My Baby/Info.plist";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -335,7 +335,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z8QVL3H8TQ;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Baby Time/Info.plist";
+				INFOPLIST_FILE = "My Baby/Info.plist";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -499,7 +499,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Baby Time.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Baby Time";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/My Baby.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/My Baby";
 			};
 			name = Debug;
 		};
@@ -521,7 +521,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Baby Time.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Baby Time";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/My Baby.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/My Baby";
 			};
 			name = Release;
 		};
@@ -541,7 +541,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "Baby Time";
+				TEST_TARGET_NAME = "My Baby";
 			};
 			name = Debug;
 		};
@@ -561,14 +561,14 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "Baby Time";
+				TEST_TARGET_NAME = "My Baby";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		E3FBC6DC2EFAC98700DF2844 /* Build configuration list for PBXProject "Baby Time" */ = {
+		E3FBC6DC2EFAC98700DF2844 /* Build configuration list for PBXProject "My Baby" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E3FBC7102EFAC98900DF2844 /* Debug */,
@@ -577,7 +577,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E3FBC70D2EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "Baby Time" */ = {
+		E3FBC70D2EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "My Baby" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E3FBC70E2EFAC98900DF2844 /* Debug */,
@@ -586,7 +586,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E3FBC7122EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "Baby TimeTests" */ = {
+		E3FBC7122EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "My BabyTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E3FBC7132EFAC98900DF2844 /* Debug */,
@@ -595,7 +595,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E3FBC7152EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "Baby TimeUITests" */ = {
+		E3FBC7152EFAC98900DF2844 /* Build configuration list for PBXNativeTarget "My BabyUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E3FBC7162EFAC98900DF2844 /* Debug */,

@@ -47,19 +47,6 @@ final class FeedingViewController: UIViewController {
 
     private let statsBar = FeedingStatsBarView()
 
-    private lazy var fabButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "plus"), for: .normal)
-        b.tintColor = .white
-        b.backgroundColor = UIColor(hexString: "#9b7fd4")
-        b.layer.cornerRadius = 28 * Constraint.yCoeff
-        b.layer.shadowColor = UIColor.black.cgColor
-        b.layer.shadowOpacity = 0.15
-        b.layer.shadowRadius = 8
-        b.layer.shadowOffset = CGSize(width: 0, height: 4)
-        b.addTarget(self, action: #selector(fabTapped), for: .touchUpInside)
-        return b
-    }()
 
     private lazy var feedingView: FeedingView = {
         let v = FeedingView()
@@ -99,7 +86,6 @@ final class FeedingViewController: UIViewController {
         view.addSubview(headerView)
         view.addSubview(collectionView)
         view.addSubview(statsBar)
-        view.addSubview(fabButton)
         view.addSubview(feedingView)
 
         headerView.snp.makeConstraints {
@@ -116,11 +102,6 @@ final class FeedingViewController: UIViewController {
             $0.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
             $0.height.equalTo(70 * Constraint.yCoeff)
         }
-        fabButton.snp.makeConstraints {
-            $0.trailing.equalToSuperview().inset(24 * Constraint.xCoeff)
-            $0.bottom.equalTo(statsBar.snp.top).offset(-12 * Constraint.yCoeff)
-            $0.width.height.equalTo(56 * Constraint.yCoeff)
-        }
         feedingView.snp.makeConstraints { $0.edges.equalToSuperview() }
     }
 
@@ -135,6 +116,12 @@ final class FeedingViewController: UIViewController {
                     self?.selectedDate = date
                     self?.applySnapshot()
                     self?.updateStats()
+                }
+                cell.onToggleExpand = { [weak self] in
+                    guard let self else { return }
+                    UIView.animate(withDuration: 0.3) {
+                        self.collectionView.performBatchUpdates(nil)
+                    }
                 }
                 return cell
 
@@ -199,9 +186,9 @@ final class FeedingViewController: UIViewController {
             guard let section = Section(rawValue: sectionIndex) else { return nil }
             switch section {
             case .weekCalendar:
-                let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .fractionalHeight(1)))
+                let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(90 * Constraint.yCoeff)))
                 let group = NSCollectionLayoutGroup.horizontal(
-                    layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(90 * Constraint.yCoeff)),
+                    layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(90 * Constraint.yCoeff)),
                     subitems: [item]
                 )
                 let sec = NSCollectionLayoutSection(group: group)
@@ -260,7 +247,7 @@ final class FeedingViewController: UIViewController {
 
         let name = BabyProfileStore.loadName() ?? "Baby"
         headerView.configure(name: name, birthday: BabyProfileStore.loadBirthday(), photo: BabyProfileStore.loadPhoto())
-        headerView.onCalendarTap = { [weak self] in self?.presentCalendar() }
+        headerView.onCalendarTap = { [weak self] in self?.presentDatePicker() }
 
         applySnapshot()
         updateStats()
@@ -279,6 +266,12 @@ final class FeedingViewController: UIViewController {
         }
         snap.appendItems(filtered.map { Item.log($0.id) }, toSection: .todayLog)
         dataSource.apply(snap, animatingDifferences: true)
+
+        // lastFeed has a stable identifier so the diffable source won't re-call
+        // the cell provider automatically — force a reconfigure to show the latest entry
+        var reconfigSnap = dataSource.snapshot()
+        reconfigSnap.reconfigureItems([.lastFeed])
+        dataSource.apply(reconfigSnap, animatingDifferences: false)
     }
 
     private func updateStats() {
@@ -303,15 +296,6 @@ final class FeedingViewController: UIViewController {
     }
 
     // MARK: - Actions
-
-    @objc private func fabTapped() {
-        feedingView.configure(initialType: .breast, showTypePicker: true)
-        feedingView.isHidden = false
-        feedingView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
-        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0.6, options: [.curveEaseInOut]) {
-            self.feedingView.transform = .identity
-        }
-    }
 
     private func quickLog(type: FeedingTypeView.FeedingType) {
         feedingView.configure(initialType: type, showTypePicker: false)
@@ -350,26 +334,24 @@ final class FeedingViewController: UIViewController {
         loadData()
     }
 
-    private func presentCalendar() {
-        if #available(iOS 16.0, *) {
-            let vc = FeedingCalendarViewController()
-            vc.onWillDismiss = { [weak self] in self?.loadData() }
-            let nav = UINavigationController(rootViewController: vc)
-            nav.presentationController?.delegate = self
-            present(nav, animated: true)
+    private func presentDatePicker() {
+        let vc = FeedingDatePickerViewController(date: selectedDate)
+        vc.onDateSelected = { [weak self] date in
+            self?.selectedDate = Calendar.current.startOfDay(for: date)
+            self?.applySnapshot()
+            self?.updateStats()
         }
+        let nav = UINavigationController(rootViewController: vc)
+        if #available(iOS 15.0, *) {
+            nav.sheetPresentationController?.detents = [.medium(), .large()]
+        }
+        present(nav, animated: true)
     }
 
     private func formatDate(_ date: Date) -> String {
         let df = DateFormatter()
         df.dateFormat = "EEEE, MMM d"
         return df.string(from: date)
-    }
-}
-
-extension FeedingViewController: UIAdaptivePresentationControllerDelegate {
-    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        loadData()
     }
 }
 
@@ -498,58 +480,114 @@ final class FeedingWeekCalendarCell: UICollectionViewCell {
     static let reuseId = "FeedingWeekCalendarCell"
 
     var onDaySelected: ((Date) -> Void)?
+    var onToggleExpand: (() -> Void)?
 
-    private var days: [Date] = []
-    private var selectedDate: Date = Date()
+    private(set) var isExpanded = false
+    private var selectedDate = Calendar.current.startOfDay(for: Date())
+    private var displayedMonth: Date = {
+        let cal = Calendar.current
+        return cal.date(from: cal.dateComponents([.year, .month], from: Date()))!
+    }()
 
-    private let stack: UIStackView = {
+    // MARK: Collapsed
+    private let collapsedView = UIView()
+    private var weekDates: [Date] = []
+    private var weekCircles: [UIView] = []
+    private var weekNumLabels: [UILabel] = []
+
+    // MARK: Expanded
+    private let expandedView = UIView()
+    private let monthYearLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: .semibold)
+        l.textColor = UIColor(hexString: "#222222")
+        l.textAlignment = .center
+        return l
+    }()
+    private lazy var prevBtn: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
+        b.tintColor = UIColor(hexString: "#9b7fd4")
+        b.addTarget(self, action: #selector(prevMonth), for: .touchUpInside)
+        return b
+    }()
+    private lazy var nextBtn: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "chevron.right"), for: .normal)
+        b.tintColor = UIColor(hexString: "#9b7fd4")
+        b.addTarget(self, action: #selector(nextMonth), for: .touchUpInside)
+        return b
+    }()
+    private var dayButtons: [UIButton] = []
+
+    // MARK: Chevrons
+    private lazy var expandChevron: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "chevron.down"), for: .normal)
+        b.tintColor = UIColor(hexString: "#9b7fd4")
+        b.addTarget(self, action: #selector(toggleExpand), for: .touchUpInside)
+        return b
+    }()
+    private lazy var collapseChevron: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "chevron.up"), for: .normal)
+        b.tintColor = UIColor(hexString: "#9b7fd4")
+        b.addTarget(self, action: #selector(toggleExpand), for: .touchUpInside)
+        return b
+    }()
+
+    private let mainStack: UIStackView = {
         let s = UIStackView()
-        s.axis = .horizontal
-        s.distribution = .fillEqually
-        s.alignment = .center
+        s.axis = .vertical
         return s
     }()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        setupUI()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    // MARK: - Setup
+
+    private func setupUI() {
         contentView.backgroundColor = .white
         contentView.layer.cornerRadius = 16 * Constraint.yCoeff
         contentView.clipsToBounds = true
-        contentView.addSubview(stack)
-        stack.snp.makeConstraints { $0.edges.equalToSuperview().inset(6 * Constraint.yCoeff) }
-        buildDays()
+
+        setupCollapsedView()
+        setupExpandedView()
+
+        mainStack.addArrangedSubview(collapsedView)
+        mainStack.addArrangedSubview(expandedView)
+        contentView.addSubview(mainStack)
+        mainStack.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        expandedView.isHidden = true
+        buildWeekDates()
+        reloadWeekStrip()
     }
 
-    required init?(coder: NSCoder) { fatalError() }
-
-    private func buildDays() {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let weekday = cal.component(.weekday, from: today)
-        let daysFromMonday = (weekday + 5) % 7
-        guard let monday = cal.date(byAdding: .day, value: -daysFromMonday, to: today) else { return }
-        days = (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: monday) }
-
-        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
+    private func setupCollapsedView() {
         let symbols = ["M", "T", "W", "T", "F", "S", "S"]
-        for (i, date) in days.enumerated() {
+        let strip = UIStackView()
+        strip.axis = .horizontal
+        strip.distribution = .fillEqually
+        strip.alignment = .center
+
+        for (i, sym) in symbols.enumerated() {
             let dayLbl = UILabel()
-            dayLbl.text = symbols[i]
+            dayLbl.text = sym
             dayLbl.font = .systemFont(ofSize: 11 * Constraint.yCoeff, weight: .medium)
             dayLbl.textColor = UIColor(hexString: "#aaaaaa")
             dayLbl.textAlignment = .center
-            dayLbl.tag = 100
 
             let circle = UIView()
             circle.layer.cornerRadius = 17 * Constraint.yCoeff
-            circle.tag = 200
 
             let numLbl = UILabel()
-            numLbl.text = "\(cal.component(.day, from: date))"
             numLbl.font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: .semibold)
             numLbl.textAlignment = .center
-            numLbl.tag = 300
 
             circle.addSubview(numLbl)
             numLbl.snp.makeConstraints { $0.center.equalToSuperview() }
@@ -561,53 +599,246 @@ final class FeedingWeekCalendarCell: UICollectionViewCell {
             vStack.alignment = .center
             vStack.isUserInteractionEnabled = false
 
-            let btn = UIButton(type: .system)
-            btn.tag = i
-            btn.addTarget(self, action: #selector(dayTapped(_:)), for: .touchUpInside)
-
             let container = UIView()
             container.addSubview(vStack)
-            container.addSubview(btn)
             vStack.snp.makeConstraints { $0.center.equalToSuperview() }
+
+            let btn = UIButton(type: .system)
+            btn.tag = i
+            btn.addTarget(self, action: #selector(weekDayTapped(_:)), for: .touchUpInside)
+            container.addSubview(btn)
             btn.snp.makeConstraints { $0.edges.equalToSuperview() }
 
-            stack.addArrangedSubview(container)
+            strip.addArrangedSubview(container)
+            weekCircles.append(circle)
+            weekNumLabels.append(numLbl)
+        }
+
+        collapsedView.addSubview(strip)
+        collapsedView.addSubview(expandChevron)
+
+        strip.snp.makeConstraints {
+            $0.top.bottom.equalToSuperview().inset(6 * Constraint.yCoeff)
+            $0.leading.equalToSuperview().inset(6 * Constraint.xCoeff)
+            $0.trailing.equalTo(expandChevron.snp.leading).offset(-4 * Constraint.xCoeff)
+            $0.height.equalTo(78 * Constraint.yCoeff)
+        }
+        expandChevron.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(12 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(24 * Constraint.yCoeff)
         }
     }
+
+    private func setupExpandedView() {
+        expandedView.addSubview(prevBtn)
+        expandedView.addSubview(monthYearLabel)
+        expandedView.addSubview(nextBtn)
+        expandedView.addSubview(collapseChevron)
+
+        prevBtn.snp.makeConstraints {
+            $0.leading.equalToSuperview().inset(12 * Constraint.xCoeff)
+            $0.top.equalToSuperview().inset(14 * Constraint.yCoeff)
+            $0.width.height.equalTo(28 * Constraint.yCoeff)
+        }
+        monthYearLabel.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.centerY.equalTo(prevBtn)
+        }
+        collapseChevron.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(12 * Constraint.xCoeff)
+            $0.centerY.equalTo(prevBtn)
+            $0.width.height.equalTo(24 * Constraint.yCoeff)
+        }
+        nextBtn.snp.makeConstraints {
+            $0.trailing.equalTo(collapseChevron.snp.leading).offset(-4 * Constraint.xCoeff)
+            $0.centerY.equalTo(prevBtn)
+            $0.width.height.equalTo(28 * Constraint.yCoeff)
+        }
+
+        let dayNames = ["M", "T", "W", "T", "F", "S", "S"]
+        let namesStack = UIStackView()
+        namesStack.axis = .horizontal
+        namesStack.distribution = .fillEqually
+        for name in dayNames {
+            let l = UILabel()
+            l.text = name
+            l.font = .systemFont(ofSize: 11 * Constraint.yCoeff, weight: .medium)
+            l.textColor = UIColor(hexString: "#aaaaaa")
+            l.textAlignment = .center
+            namesStack.addArrangedSubview(l)
+        }
+        expandedView.addSubview(namesStack)
+        namesStack.snp.makeConstraints {
+            $0.top.equalTo(prevBtn.snp.bottom).offset(10 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview().inset(8 * Constraint.xCoeff)
+            $0.height.equalTo(20 * Constraint.yCoeff)
+        }
+
+        let gridStack = UIStackView()
+        gridStack.axis = .vertical
+        gridStack.spacing = 2 * Constraint.yCoeff
+
+        for row in 0..<6 {
+            let rowStack = UIStackView()
+            rowStack.axis = .horizontal
+            rowStack.distribution = .fillEqually
+            rowStack.snp.makeConstraints { $0.height.equalTo(36 * Constraint.yCoeff) }
+            for col in 0..<7 {
+                let btn = UIButton(type: .custom)
+                btn.tag = row * 7 + col
+                btn.titleLabel?.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .medium)
+                btn.layer.cornerRadius = 15 * Constraint.yCoeff
+                btn.clipsToBounds = true
+                btn.addTarget(self, action: #selector(dayTapped(_:)), for: .touchUpInside)
+                dayButtons.append(btn)
+                rowStack.addArrangedSubview(btn)
+            }
+            gridStack.addArrangedSubview(rowStack)
+        }
+
+        expandedView.addSubview(gridStack)
+        gridStack.snp.makeConstraints {
+            $0.top.equalTo(namesStack.snp.bottom).offset(4 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview().inset(8 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().inset(8 * Constraint.yCoeff)
+        }
+    }
+
+    // MARK: - Data
+
+    private func buildWeekDates() {
+        let cal = Calendar.current
+        let weekday = cal.component(.weekday, from: selectedDate)
+        let offset = (weekday + 5) % 7
+        guard let monday = cal.date(byAdding: .day, value: -offset, to: selectedDate) else { return }
+        weekDates = (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: monday) }
+    }
+
+    private func reloadWeekStrip() {
+        let cal = Calendar.current
+        let purple = UIColor(hexString: "#9b7fd4")
+        for i in 0..<7 {
+            guard i < weekDates.count else { continue }
+            let date = weekDates[i]
+            weekNumLabels[i].text = "\(cal.component(.day, from: date))"
+            let isSelected = cal.isDate(date, inSameDayAs: selectedDate)
+            let isToday = cal.isDateInToday(date)
+            weekCircles[i].backgroundColor = isSelected ? purple : .clear
+            weekNumLabels[i].textColor = isSelected ? .white : (isToday ? purple : UIColor(hexString: "#333333"))
+            weekNumLabels[i].font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: isSelected || isToday ? .bold : .regular)
+        }
+    }
+
+    private func reloadMonthGrid() {
+        let cal = Calendar.current
+        let df = DateFormatter()
+        df.dateFormat = "MMMM yyyy"
+        monthYearLabel.text = df.string(from: displayedMonth)
+
+        let firstDay = cal.date(from: cal.dateComponents([.year, .month], from: displayedMonth))!
+        let weekday = cal.component(.weekday, from: firstDay)
+        let offset = (weekday + 5) % 7
+        let daysInMonth = cal.range(of: .day, in: .month, for: displayedMonth)!.count
+        let purple = UIColor(hexString: "#9b7fd4")
+
+        for (i, btn) in dayButtons.enumerated() {
+            let dayNum = i - offset + 1
+            if dayNum < 1 || dayNum > daysInMonth {
+                btn.setTitle("", for: .normal)
+                btn.isEnabled = false
+                btn.backgroundColor = .clear
+            } else {
+                btn.setTitle("\(dayNum)", for: .normal)
+                btn.isEnabled = true
+                let date = cal.date(byAdding: .day, value: dayNum - 1, to: firstDay)!
+                let isSelected = cal.isDate(date, inSameDayAs: selectedDate)
+                let isToday = cal.isDateInToday(date)
+                if isSelected {
+                    btn.backgroundColor = purple
+                    btn.setTitleColor(.white, for: .normal)
+                    btn.titleLabel?.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .bold)
+                } else if isToday {
+                    btn.backgroundColor = purple.withAlphaComponent(0.12)
+                    btn.setTitleColor(purple, for: .normal)
+                    btn.titleLabel?.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .bold)
+                } else {
+                    btn.backgroundColor = .clear
+                    btn.setTitleColor(UIColor(hexString: "#333333"), for: .normal)
+                    btn.titleLabel?.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .medium)
+                }
+            }
+        }
+    }
+
+    // MARK: - Public
 
     func configure(selected: Date) {
         selectedDate = Calendar.current.startOfDay(for: selected)
-        updateSelection()
-    }
-
-    private func updateSelection() {
         let cal = Calendar.current
-        for (i, date) in days.enumerated() {
-            guard i < stack.arrangedSubviews.count else { continue }
-            let container = stack.arrangedSubviews[i]
-            guard let vStack = container.subviews.first(where: { $0 is UIStackView }) as? UIStackView,
-                  vStack.arrangedSubviews.count >= 2,
-                  let dayLbl = vStack.arrangedSubviews[0] as? UILabel,
-                  let numLbl = vStack.arrangedSubviews[1].subviews.first(where: { $0 is UILabel }) as? UILabel
-            else { continue }
-            let circle = vStack.arrangedSubviews[1]
-
-            let isSelected = cal.isDate(date, inSameDayAs: selectedDate)
-            let isToday = cal.isDateInToday(date)
-
-            circle.backgroundColor = isSelected ? UIColor(hexString: "#9b7fd4") : .clear
-            numLbl.textColor = isSelected ? .white : (isToday ? UIColor(hexString: "#9b7fd4") : UIColor(hexString: "#333333"))
-            numLbl.font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: isSelected || isToday ? .bold : .regular)
-            dayLbl.textColor = isSelected ? UIColor(hexString: "#9b7fd4") : UIColor(hexString: "#aaaaaa")
+        if !cal.isDate(selectedDate, equalTo: displayedMonth, toGranularity: .month) {
+            displayedMonth = cal.date(from: cal.dateComponents([.year, .month], from: selectedDate)) ?? displayedMonth
         }
+        buildWeekDates()
+        reloadWeekStrip()
+        if isExpanded { reloadMonthGrid() }
     }
 
-    @objc private func dayTapped(_ sender: UIButton) {
-        let i = sender.tag
-        guard i < days.count else { return }
-        selectedDate = days[i]
-        updateSelection()
-        onDaySelected?(days[i])
+    // MARK: - Actions
+
+    @objc private func toggleExpand() {
+        isExpanded.toggle()
+        collapsedView.isHidden = isExpanded
+        expandedView.isHidden = !isExpanded
+        if isExpanded { reloadMonthGrid() }
+        onToggleExpand?()
+    }
+
+    @objc private func weekDayTapped(_ btn: UIButton) {
+        let i = btn.tag
+        guard i < weekDates.count else { return }
+        selectedDate = weekDates[i]
+        let cal = Calendar.current
+        if !cal.isDate(selectedDate, equalTo: displayedMonth, toGranularity: .month) {
+            displayedMonth = cal.date(from: cal.dateComponents([.year, .month], from: selectedDate)) ?? displayedMonth
+        }
+        reloadWeekStrip()
+        onDaySelected?(selectedDate)
+    }
+
+    @objc private func dayTapped(_ btn: UIButton) {
+        let cal = Calendar.current
+        let firstDay = cal.date(from: cal.dateComponents([.year, .month], from: displayedMonth))!
+        let weekday = cal.component(.weekday, from: firstDay)
+        let offset = (weekday + 5) % 7
+        let dayNum = btn.tag - offset + 1
+        let daysInMonth = cal.range(of: .day, in: .month, for: displayedMonth)!.count
+        guard dayNum >= 1, dayNum <= daysInMonth,
+              let date = cal.date(byAdding: .day, value: dayNum - 1, to: firstDay) else { return }
+        selectedDate = cal.startOfDay(for: date)
+        buildWeekDates()
+        reloadMonthGrid()
+        onDaySelected?(selectedDate)
+    }
+
+    @objc private func prevMonth() {
+        guard let prev = Calendar.current.date(byAdding: .month, value: -1, to: displayedMonth) else { return }
+        displayedMonth = prev
+        reloadMonthGrid()
+    }
+
+    @objc private func nextMonth() {
+        guard let next = Calendar.current.date(byAdding: .month, value: 1, to: displayedMonth) else { return }
+        displayedMonth = next
+        reloadMonthGrid()
+    }
+
+    // MARK: - Self-sizing
+
+    override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
+        let attrs = super.preferredLayoutAttributesFitting(layoutAttributes)
+        attrs.frame.size.height = isExpanded ? 310 * Constraint.yCoeff : 90 * Constraint.yCoeff
+        return attrs
     }
 }
 
@@ -741,26 +972,49 @@ final class FeedingLastFeedCell: UICollectionViewCell {
         let minutes = Int((elapsed.truncatingRemainder(dividingBy: 3600)) / 60)
         timeAgoLabel.text = hours > 0 ? "\(hours)h \(minutes)m ago" : "\(minutes)m ago"
 
+        let accentColor: UIColor
+        let iconName: String
         switch entry.typeRaw {
         case "breast":
-            typeBadge.backgroundColor = UIColor.systemPink.withAlphaComponent(0.12)
-            typeBadgeLabel.textColor = UIColor.systemPink
+            accentColor = UIColor(hexString: "#e07a5f")
+            iconName = "heart.fill"
+            typeBadge.backgroundColor = accentColor.withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = accentColor
             typeBadgeLabel.text = "Breast"
         case "bottle":
-            typeBadge.backgroundColor = UIColor(hexString: "#9b7fd4").withAlphaComponent(0.12)
-            typeBadgeLabel.textColor = UIColor(hexString: "#9b7fd4")
+            accentColor = UIColor(hexString: "#9b7fd4")
+            iconName = "waterbottle"
+            typeBadge.backgroundColor = accentColor.withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = accentColor
             typeBadgeLabel.text = "Bottle"
         case "formula":
-            typeBadge.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.12)
-            typeBadgeLabel.textColor = UIColor.systemOrange
+            accentColor = UIColor(hexString: "#4a9fc4")
+            iconName = "drop.fill"
+            typeBadge.backgroundColor = accentColor.withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = accentColor
             typeBadgeLabel.text = "Formula"
         case "solid":
-            typeBadge.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.12)
-            typeBadgeLabel.textColor = UIColor.systemGreen
+            accentColor = UIColor(hexString: "#5aac7c")
+            iconName = "fork.knife"
+            typeBadge.backgroundColor = accentColor.withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = accentColor
             typeBadgeLabel.text = "Solids"
         default:
             typeBadge.isHidden = true
+            accentColor = UIColor(hexString: "#9b7fd4")
+            iconName = "drop.fill"
         }
+
+        accentStrip.backgroundColor = accentColor
+        lastFeedTitle.attributedText = NSAttributedString(string: "LAST FEED", attributes: [
+            .kern: 1.2,
+            .font: UIFont.systemFont(ofSize: 10 * Constraint.yCoeff, weight: .semibold),
+            .foregroundColor: accentColor
+        ])
+        iconCircle.backgroundColor = accentColor.withAlphaComponent(0.12)
+        iconView.image = UIImage(systemName: iconName)
+        iconView.tintColor = accentColor
+
         amountLabel.text = entry.volumeText
     }
 }
@@ -941,5 +1195,52 @@ final class FeedingStatsBarView: UIView {
         let trackW = progressTrack.bounds.width
         guard trackW > 0 else { return }
         progressFill.frame = CGRect(x: 0, y: 0, width: trackW * progressRatio, height: progressTrack.bounds.height)
+    }
+}
+
+// MARK: - FeedingDatePickerViewController
+
+private final class FeedingDatePickerViewController: UIViewController {
+
+    var onDateSelected: ((Date) -> Void)?
+
+    private let picker = UIDatePicker()
+    private let initialDate: Date
+
+    init(date: Date) {
+        self.initialDate = date
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Select Date"
+        view.backgroundColor = UIColor.viewsBackGourdColor
+
+        picker.datePickerMode = .date
+        picker.date = initialDate
+        picker.tintColor = UIColor(hexString: "#9b7fd4")
+        if #available(iOS 14.0, *) {
+            picker.preferredDatePickerStyle = .inline
+        }
+
+        view.addSubview(picker)
+        picker.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            picker.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            picker.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8)
+        ])
+
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: "Done", style: .done, target: self, action: #selector(done)
+        )
+        navigationController?.navigationBar.tintColor = UIColor(hexString: "#9b7fd4")
+    }
+
+    @objc private func done() {
+        onDateSelected?(picker.date)
+        dismiss(animated: true)
     }
 }

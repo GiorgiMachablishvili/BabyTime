@@ -170,6 +170,20 @@ final class SettingsViewController: UIViewController {
     private lazy var exportRow = makeSettingsRow(icon: "square.and.arrow.up", title: "Export Data", subtitle: "Coming soon")
     private lazy var darkModeRow = makeSettingsRow(icon: "moon", title: "Dark Mode", subtitle: "Coming soon")
 
+    // MARK: - Danger zone
+
+    private lazy var deleteAccountButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setTitle("Delete Account", for: .normal)
+        b.setTitleColor(.white, for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        b.backgroundColor = UIColor(hexString: "#e53935")
+        b.layer.cornerRadius = 12
+        b.clipsToBounds = true
+        b.addTarget(self, action: #selector(deleteAccountTapped), for: .touchUpInside)
+        return b
+    }()
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -247,6 +261,7 @@ final class SettingsViewController: UIViewController {
         contentView.addSubview(notificationsRow)
         contentView.addSubview(exportRow)
         contentView.addSubview(darkModeRow)
+        contentView.addSubview(deleteAccountButton)
     }
 
     private func setupConstraints() {
@@ -353,6 +368,11 @@ final class SettingsViewController: UIViewController {
             $0.top.equalTo(exportRow.snp.bottom).offset(10 * Constraint.xCoeff)
             $0.leading.trailing.equalToSuperview().inset(hPad)
             $0.height.equalTo(64 * Constraint.yCoeff)
+        }
+        deleteAccountButton.snp.makeConstraints {
+            $0.top.equalTo(darkModeRow.snp.bottom).offset(32 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(hPad)
+            $0.height.equalTo(50 * Constraint.yCoeff)
             $0.bottom.equalToSuperview().inset(32 * Constraint.xCoeff)
         }
     }
@@ -416,6 +436,35 @@ final class SettingsViewController: UIViewController {
             UIView.animate(withDuration: 0.3) { self.profileSavedLabel.alpha = 0 } completion: { _ in
                 self.profileSavedLabel.isHidden = true
             }
+        }
+    }
+
+    @objc private func deleteAccountTapped() {
+        let alert = UIAlertController(
+            title: "Delete Account",
+            message: "This will permanently delete all your baby data. This action cannot be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            self?.performDeleteAccount()
+        })
+        present(alert, animated: true)
+    }
+
+    private func performDeleteAccount() {
+        if let bundleId = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleId)
+        }
+        UserDefaults.standard.synchronize()
+
+        guard let windowScene = view.window?.windowScene else { return }
+        let welcome = WelcomeViewController()
+        let window = UIWindow(windowScene: windowScene)
+        window.rootViewController = welcome
+        window.makeKeyAndVisible()
+        if let sceneDelegate = windowScene.delegate as? SceneDelegate {
+            sceneDelegate.window = window
         }
     }
 

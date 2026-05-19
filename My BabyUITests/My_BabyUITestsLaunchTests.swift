@@ -1,13 +1,13 @@
 //
-//  Baby_TimeUITestsLaunchTests.swift
-//  Baby TimeUITests
+//  My_BabyUITestsLaunchTests.swift
+//  My BabyUITests
 //
 //  Created by Gio's Mac on 23.12.25.
 //
 
 import XCTest
 
-final class Baby_TimeUITestsLaunchTests: XCTestCase {
+final class My_BabyUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

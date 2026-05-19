@@ -1,13 +1,13 @@
 //
-//  Baby_TimeUITests.swift
-//  Baby TimeUITests
+//  My_BabyUITests.swift
+//  My BabyUITests
 //
 //  Created by Gio's Mac on 23.12.25.
 //
 
 import XCTest
 
-final class Baby_TimeUITests: XCTestCase {
+final class My_BabyUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
