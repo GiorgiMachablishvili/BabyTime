@@ -1,6 +1,13 @@
 import UIKit
 import SnapKit
 
+// MARK: - Helpers
+
+private extension Double {
+    /// Returns nil if the value is zero (used for UserDefaults "not set" detection).
+    var nonZero: Double? { self == 0 ? nil : self }
+}
+
 // MARK: - SleepViewController
 
 final class SleepViewController: UIViewController {
@@ -13,6 +20,7 @@ final class SleepViewController: UIViewController {
 
     private nonisolated enum Item: Hashable, Sendable {
         case dateNav, ringStats, timeline
+        case empty
         case session(UUID)
     }
 
@@ -22,6 +30,11 @@ final class SleepViewController: UIViewController {
     private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
     private var activeStartDate: Date?
     private var liveTimer: Timer?
+
+    private var sleepGoalHours: Double {
+        get { UserDefaults.standard.double(forKey: "sleepGoalHours").nonZero ?? 14 }
+        set { UserDefaults.standard.set(newValue, forKey: "sleepGoalHours") }
+    }
 
     private lazy var elapsedLabel: UILabel = {
         let l = UILabel()
@@ -100,6 +113,7 @@ final class SleepViewController: UIViewController {
         cv.backgroundColor = .clear
         cv.alwaysBounceVertical = true
         cv.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 120 * Constraint.yCoeff, right: 0)
+        cv.register(BabyEmptyLogCell.self, forCellWithReuseIdentifier: BabyEmptyLogCell.reuseId)
         cv.register(SleepCalendarCell.self, forCellWithReuseIdentifier: SleepCalendarCell.reuseId)
         cv.register(SleepRingStatsCell.self, forCellWithReuseIdentifier: SleepRingStatsCell.reuseId)
         cv.register(SleepTimelineCell.self, forCellWithReuseIdentifier: SleepTimelineCell.reuseId)
@@ -206,13 +220,17 @@ final class SleepViewController: UIViewController {
             case .ringStats:
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: SleepRingStatsCell.reuseId, for: indexPath) as! SleepRingStatsCell
                 let daySessions = self.sessionsForSelectedDate()
-                cell.configure(sessions: daySessions, goalHours: 14, isLive: self.activeStartDate != nil, liveStart: self.activeStartDate)
+                cell.configure(sessions: daySessions, goalHours: self.sleepGoalHours, isLive: self.activeStartDate != nil, liveStart: self.activeStartDate)
+                cell.onGoalTap = { [weak self] in self?.presentGoalPicker() }
                 return cell
 
             case .timeline:
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: SleepTimelineCell.reuseId, for: indexPath) as! SleepTimelineCell
                 cell.configure(sessions: self.sessionsForSelectedDate(), date: self.selectedDate)
                 return cell
+
+            case .empty:
+                return cv.dequeueReusableCell(withReuseIdentifier: BabyEmptyLogCell.reuseId, for: indexPath)
 
             case .session(let id):
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: SleepLogCell.reuseId, for: indexPath) as! SleepLogCell
@@ -263,7 +281,7 @@ final class SleepViewController: UIViewController {
                 return sec
 
             case .todayLog:
-                let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(80 * Constraint.yCoeff)))
+                let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(80 * Constraint.yCoeff)))
                 let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(300 * Constraint.yCoeff)), subitems: [item])
                 let sec = NSCollectionLayoutSection(group: group)
                 sec.interGroupSpacing = 10 * Constraint.yCoeff
@@ -300,7 +318,12 @@ final class SleepViewController: UIViewController {
         snap.appendItems([Item.ringStats], toSection: .ringStats)
         snap.appendItems([Item.timeline], toSection: .timeline)
         let daySessions = sessionsForSelectedDate()
-        snap.appendItems(daySessions.map { Item.session($0.id) }, toSection: .todayLog)
+        if daySessions.isEmpty {
+            snap.appendItems([.empty], toSection: .todayLog)
+        } else {
+            snap.appendItems(daySessions.map { Item.session($0.id) }, toSection: .todayLog)
+        }
+        snap.reloadSections([.todayLog])
         dataSource.apply(snap, animatingDifferences: true)
     }
 
@@ -365,6 +388,24 @@ final class SleepViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    private func presentGoalPicker() {
+        let current = Int(sleepGoalHours)
+        let alert = UIAlertController(title: "Sleep Goal", message: "Set the daily sleep goal in hours.", preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.keyboardType = .numberPad
+            tf.text = "\(current)"
+            tf.placeholder = "Hours (e.g. 14)"
+        }
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self, weak alert] _ in
+            guard let self, let text = alert?.textFields?.first?.text,
+                  let hours = Double(text), hours > 0, hours <= 24 else { return }
+            self.sleepGoalHours = hours
+            self.applySnapshot()
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
     private func refreshLiveUI() {
         guard let start = activeStartDate else { return }
         let elapsed = Date().timeIntervalSince(start)
@@ -423,13 +464,6 @@ final class SleepHeaderView: UIView {
         return l
     }()
 
-    private let settingsButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "gearshape"), for: .normal)
-        b.tintColor = UIColor(hexString: "#8b6dc4")
-        return b
-    }()
-
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .viewsBackGourdColor
@@ -438,7 +472,6 @@ final class SleepHeaderView: UIView {
         avatarView.addSubview(avatarInitialLabel)
         addSubview(nameLabel)
         addSubview(ageLabel)
-        addSubview(settingsButton)
 
         avatarView.snp.makeConstraints {
             $0.leading.equalToSuperview().inset(20 * Constraint.xCoeff)
@@ -454,11 +487,6 @@ final class SleepHeaderView: UIView {
         ageLabel.snp.makeConstraints {
             $0.leading.equalTo(nameLabel)
             $0.top.equalTo(avatarView.snp.centerY).offset(2)
-        }
-        settingsButton.snp.makeConstraints {
-            $0.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
-            $0.centerY.equalTo(avatarView)
-            $0.width.height.equalTo(36 * Constraint.yCoeff)
         }
     }
 
@@ -561,6 +589,8 @@ final class SleepDateNavCell: UICollectionViewCell {
 final class SleepRingStatsCell: UICollectionViewCell {
     static let reuseId = "SleepRingStatsCell"
 
+    var onGoalTap: (() -> Void)?
+
     private let ringView = SleepRingView()
 
     private let totalLabel: UILabel = {
@@ -571,12 +601,12 @@ final class SleepRingStatsCell: UICollectionViewCell {
         return l
     }()
 
-    private let goalLabel: UILabel = {
-        let l = UILabel()
-        l.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
-        l.textColor = UIColor(hexString: "#999999")
-        l.textAlignment = .center
-        return l
+    private lazy var goalButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.titleLabel?.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
+        b.setTitleColor(UIColor(hexString: "#999999"), for: .normal)
+        b.addTarget(self, action: #selector(goalTapped), for: .touchUpInside)
+        return b
     }()
 
     private let divider: UIView = {
@@ -613,7 +643,7 @@ final class SleepRingStatsCell: UICollectionViewCell {
 
         contentView.addSubview(ringView)
         contentView.addSubview(totalLabel)
-        contentView.addSubview(goalLabel)
+        contentView.addSubview(goalButton)
         contentView.addSubview(divider)
         contentView.addSubview(napsTitle)
         contentView.addSubview(napsValue)
@@ -628,7 +658,7 @@ final class SleepRingStatsCell: UICollectionViewCell {
         totalLabel.snp.makeConstraints {
             $0.center.equalTo(ringView).offset(-8 * Constraint.yCoeff)
         }
-        goalLabel.snp.makeConstraints {
+        goalButton.snp.makeConstraints {
             $0.centerX.equalTo(ringView)
             $0.top.equalTo(totalLabel.snp.bottom).offset(2 * Constraint.yCoeff)
         }
@@ -670,7 +700,7 @@ final class SleepRingStatsCell: UICollectionViewCell {
         let totalH = Int(totalSeconds / 3600)
         let totalM = Int((totalSeconds.truncatingRemainder(dividingBy: 3600)) / 60)
         totalLabel.text = totalH > 0 ? "\(totalH)h \(totalM)m" : "\(totalM)m"
-        goalLabel.text = "/\(Int(goalHours))h goal"
+        goalButton.setTitle("/\(Int(goalHours))h goal", for: .normal)
 
         let progress = min(totalSeconds / (goalHours * 3600), 1.0)
         ringView.setProgress(CGFloat(progress))
@@ -683,6 +713,8 @@ final class SleepRingStatsCell: UICollectionViewCell {
         stretchValue.text = lH > 0 ? "\(lH)h \(lM)m" : "\(lM)m"
         if sessions.isEmpty { stretchValue.text = "—"; napsValue.text = "0" }
     }
+
+    @objc private func goalTapped() { onGoalTap?() }
 
     private func isNap(_ s: SleepSession) -> Bool {
         let h = Calendar.current.component(.hour, from: s.start)
@@ -817,22 +849,24 @@ final class SleepTimelineCell: UICollectionViewCell {
             guard clampedEnd > clampedStart else { continue }
 
             let startFraction = clampedStart.timeIntervalSince(dayStart) / 86400
-            let endFraction = clampedEnd.timeIntervalSince(dayStart) / 86400
+            let endFraction   = clampedEnd.timeIntervalSince(dayStart)   / 86400
 
             let seg = UIView()
-            let isNightHour = cal.component(.hour, from: session.start) >= 19 || cal.component(.hour, from: session.start) < 6
-            seg.backgroundColor = isNightHour ? UIColor(hexString: "#8b6dc4") : UIColor(hexString: "#f0b7a5")
-            seg.layer.cornerRadius = 14 * Constraint.yCoeff
-            trackView.addSubview(seg)
-
-            seg.snp.makeConstraints {
-                $0.top.bottom.equalToSuperview().inset(4 * Constraint.yCoeff)
-                $0.leading.equalToSuperview().multipliedBy(startFraction).offset(startFraction * trackView.bounds.width == 0 ? startFraction : 0)
+            let hour = cal.component(.hour, from: session.start)
+            let isNight = hour >= 19 || hour < 6
+            // Night sleep → purple, morning nap → soft orange, afternoon nap → peach
+            if isNight {
+                seg.backgroundColor = UIColor(hexString: "#8b6dc4")
+            } else if hour < 12 {
+                seg.backgroundColor = UIColor(hexString: "#f4a261").withAlphaComponent(0.85)
+            } else {
+                seg.backgroundColor = UIColor(hexString: "#f0b7a5")
             }
-            segmentViews.append(seg)
-
-            seg.tag = Int(startFraction * 10000)
+            seg.clipsToBounds = true
+            // Store fractions — layoutSubviews does all the frame math once trackView has real bounds
             seg.accessibilityValue = "\(startFraction),\(endFraction)"
+            trackView.addSubview(seg)
+            segmentViews.append(seg)
         }
         setNeedsLayout()
     }

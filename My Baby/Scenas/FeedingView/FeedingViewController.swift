@@ -13,6 +13,7 @@ final class FeedingViewController: UIViewController {
 
     private nonisolated enum Item: Hashable, Sendable {
         case weekCalendar, lastFeed, quickActions
+        case empty
         case log(UUID)
     }
 
@@ -31,6 +32,7 @@ final class FeedingViewController: UIViewController {
         cv.backgroundColor = .clear
         cv.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 80 * Constraint.yCoeff, right: 0)
         cv.alwaysBounceVertical = true
+        cv.register(BabyEmptyLogCell.self, forCellWithReuseIdentifier: BabyEmptyLogCell.reuseId)
         cv.register(FeedingWeekCalendarCell.self, forCellWithReuseIdentifier: FeedingWeekCalendarCell.reuseId)
         cv.register(FeedingLastFeedCell.self, forCellWithReuseIdentifier: FeedingLastFeedCell.reuseId)
         cv.register(FeedingQuickActionsCell.self, forCellWithReuseIdentifier: FeedingQuickActionsCell.reuseId)
@@ -46,6 +48,7 @@ final class FeedingViewController: UIViewController {
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
     private let statsBar = FeedingStatsBarView()
+
 
 
     private lazy var feedingView: FeedingView = {
@@ -136,6 +139,9 @@ final class FeedingViewController: UIViewController {
                     self?.quickLog(type: type)
                 }
                 return cell
+
+            case .empty:
+                return cv.dequeueReusableCell(withReuseIdentifier: BabyEmptyLogCell.reuseId, for: indexPath)
 
             case .log(let id):
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: FeedingViewCell.reuseId, for: indexPath) as! FeedingViewCell
@@ -264,7 +270,12 @@ final class FeedingViewController: UIViewController {
         let filtered = logEntries.filter {
             cal.isDate(Date(timeIntervalSince1970: $0.savedAtEpochSeconds ?? 0), inSameDayAs: selectedDate)
         }
-        snap.appendItems(filtered.map { Item.log($0.id) }, toSection: .todayLog)
+        if filtered.isEmpty {
+            snap.appendItems([.empty], toSection: .todayLog)
+        } else {
+            snap.appendItems(filtered.map { Item.log($0.id) }, toSection: .todayLog)
+        }
+        snap.reloadSections([.todayLog])
         dataSource.apply(snap, animatingDifferences: true)
 
         // lastFeed has a stable identifier so the diffable source won't re-call
