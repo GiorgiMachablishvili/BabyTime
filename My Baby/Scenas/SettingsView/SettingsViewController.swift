@@ -5,51 +5,42 @@ final class SettingsViewController: UIViewController {
 
     // MARK: - State
 
-    private var profileImage: UIImage?
-    private var profileName: String?
-    private var profileBirthday: Date?
-    private var profileGender: String = "Other"
+    private var profiles: [BabyProfile] = []
+    private var selectedIndex: Int = 0
     private var selectedGender: Gender = .other { didSet { updateGenderButtons() } }
 
     private enum Gender: String {
         case boy = "Boy", girl = "Girl", other = "Other"
     }
 
-    // MARK: - Header
+    // MARK: - Top header
 
-    private lazy var headerView: UIView = {
-        let v = UIView()
-        v.backgroundColor = .systemBackground
-        return v
-    }()
-
-    private lazy var avatarButton: UIButton = {
-        let b = UIButton(type: .custom)
-        b.backgroundColor = UIColor(hexString: "#c5d8dc")
-        b.setImage(UIImage(systemName: "person.fill"), for: .normal)
-        b.tintColor = .white
-        b.layer.cornerRadius = 20 * Constraint.yCoeff
-        b.clipsToBounds = true
-        b.addTarget(self, action: #selector(avatarTapped), for: .touchUpInside)
-        return b
-    }()
-
-    private lazy var headerTitleLabel: UILabel = {
+    private lazy var pageTitleLabel: UILabel = {
         let l = UILabel()
-        l.text = "BabyTime"
-        l.font = .systemFont(ofSize: 18, weight: .bold)
-        l.textColor = .label
+        l.text = "BABY PROFILE"
+        l.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .bold)
+        l.textColor = UIColor(hexString: "#222222")
         return l
     }()
 
-    private lazy var gearButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "gearshape"), for: .normal)
-        b.tintColor = UIColor(hexString: "#555555")
-        return b
+    // MARK: - Profile switcher
+
+    private lazy var switcherScrollView: UIScrollView = {
+        let s = UIScrollView()
+        s.showsHorizontalScrollIndicator = false
+        s.alwaysBounceHorizontal = true
+        return s
     }()
 
-    // MARK: - Scroll
+    private lazy var switcherStack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .horizontal
+        s.spacing = 20 * Constraint.xCoeff
+        s.alignment = .top
+        return s
+    }()
+
+    // MARK: - Scroll / content
 
     private lazy var scrollView: UIScrollView = {
         let s = UIScrollView()
@@ -63,8 +54,6 @@ final class SettingsViewController: UIViewController {
 
     // MARK: - Profile card
 
-    private lazy var profileSectionLabel = makeSectionTitle("BABY PROFILE")
-
     private lazy var profileCard: UIView = makeCard()
 
     private lazy var profilePhotoButton: UIButton = {
@@ -72,24 +61,21 @@ final class SettingsViewController: UIViewController {
         b.backgroundColor = UIColor(hexString: "#c5d8dc")
         b.setImage(UIImage(systemName: "person.fill"), for: .normal)
         b.tintColor = .white
-        b.layer.cornerRadius = 40 * Constraint.yCoeff
+        b.layer.cornerRadius = 45 * Constraint.yCoeff
         b.clipsToBounds = true
         b.addTarget(self, action: #selector(avatarTapped), for: .touchUpInside)
         return b
     }()
 
-    private lazy var cameraOverlay: UIView = {
-        let v = UIView()
-        v.backgroundColor = UIColor.black.withAlphaComponent(0.35)
-        v.layer.cornerRadius = 40 * Constraint.yCoeff
-        v.clipsToBounds = true
-        v.isUserInteractionEnabled = false
-        let img = UIImageView(image: UIImage(systemName: "camera.fill"))
-        img.tintColor = .white
-        img.contentMode = .scaleAspectFit
-        v.addSubview(img)
-        img.snp.makeConstraints { $0.center.equalToSuperview(); $0.width.height.equalTo(20 * Constraint.yCoeff) }
-        return v
+    private lazy var cameraButton: UIButton = {
+        let b = UIButton(type: .custom)
+        b.backgroundColor = UIColor(hexString: "#6c5fcd")
+        b.setImage(UIImage(systemName: "camera.fill"), for: .normal)
+        b.tintColor = .white
+        b.layer.cornerRadius = 14 * Constraint.yCoeff
+        b.clipsToBounds = true
+        b.addTarget(self, action: #selector(avatarTapped), for: .touchUpInside)
+        return b
     }()
 
     private lazy var nameLabel = makeFieldLabel("Baby's Name")
@@ -99,11 +85,10 @@ final class SettingsViewController: UIViewController {
     private lazy var birthdayTextField: UITextField = {
         let tf = makeTextField(placeholder: "dd.mm.yyyy")
         tf.inputView = datePicker
-        let toolbar = UIToolbar()
-        toolbar.sizeToFit()
+        let toolbar = UIToolbar(); toolbar.sizeToFit()
         let cancel = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancelDate))
-        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-        let done = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneDate))
+        let flex   = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let done   = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneDate))
         toolbar.items = [cancel, flex, done]
         tf.inputAccessoryView = toolbar
         let calIcon = UIImageView(image: UIImage(systemName: "calendar"))
@@ -128,8 +113,8 @@ final class SettingsViewController: UIViewController {
 
     private lazy var genderLabel = makeFieldLabel("Gender")
 
-    private lazy var boyButton = GenderButton(title: "Boy")
-    private lazy var girlButton = GenderButton(title: "Girl")
+    private lazy var boyButton   = GenderButton(title: "Boy")
+    private lazy var girlButton  = GenderButton(title: "Girl")
     private lazy var otherButton = GenderButton(title: "Other")
 
     private lazy var genderStack: UIStackView = {
@@ -144,9 +129,9 @@ final class SettingsViewController: UIViewController {
         let b = UIButton(type: .system)
         b.setTitle("Save Profile", for: .normal)
         b.setTitleColor(.white, for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        b.titleLabel?.font = .systemFont(ofSize: 17 * Constraint.yCoeff, weight: .semibold)
         b.backgroundColor = UIColor(hexString: "#6c5fcd")
-        b.layer.cornerRadius = 12
+        b.layer.cornerRadius = 26 * Constraint.yCoeff
         b.clipsToBounds = true
         b.addTarget(self, action: #selector(saveProfile), for: .touchUpInside)
         return b
@@ -154,7 +139,7 @@ final class SettingsViewController: UIViewController {
 
     private lazy var profileSavedLabel: UILabel = {
         let l = UILabel()
-        l.text = "⊙ Profile saved"
+        l.text = "✓ Profile saved"
         l.font = .systemFont(ofSize: 12)
         l.textColor = .secondaryLabel
         l.textAlignment = .center
@@ -162,15 +147,28 @@ final class SettingsViewController: UIViewController {
         return l
     }()
 
-    // MARK: - Preferences section
+    // MARK: - Preferences
 
     private lazy var prefSectionLabel = makeSectionTitle("PREFERENCES")
+    private lazy var notificationsRow = makeSettingsRow(icon: "bell",                title: "Notifications", subtitle: "Coming soon")
+    private lazy var exportRow        = makeSettingsRow(icon: "square.and.arrow.up", title: "Export Data",    subtitle: "Coming soon")
+    private lazy var darkModeRow      = makeSettingsRow(icon: "moon",                title: "Dark Mode",      subtitle: "Coming soon")
 
-    private lazy var notificationsRow = makeSettingsRow(icon: "bell", title: "Notifications", subtitle: "Coming soon")
-    private lazy var exportRow = makeSettingsRow(icon: "square.and.arrow.up", title: "Export Data", subtitle: "Coming soon")
-    private lazy var darkModeRow = makeSettingsRow(icon: "moon", title: "Dark Mode", subtitle: "Coming soon")
+    // MARK: - Delete
 
-    // MARK: - Danger zone
+    private lazy var deleteChildButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setTitle("Delete Child Profile", for: .normal)
+        b.setTitleColor(UIColor(hexString: "#e53935"), for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        b.backgroundColor = .clear
+        b.layer.cornerRadius = 16 * Constraint.yCoeff
+        b.layer.borderWidth = 1.5
+        b.layer.borderColor = UIColor(hexString: "#e53935").cgColor
+        b.clipsToBounds = true
+        b.addTarget(self, action: #selector(deleteChildTapped), for: .touchUpInside)
+        return b
+    }()
 
     private lazy var deleteAccountButton: UIButton = {
         let b = UIButton(type: .system)
@@ -178,7 +176,7 @@ final class SettingsViewController: UIViewController {
         b.setTitleColor(.white, for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
         b.backgroundColor = UIColor(hexString: "#e53935")
-        b.layer.cornerRadius = 12
+        b.layer.cornerRadius = 16 * Constraint.yCoeff
         b.clipsToBounds = true
         b.addTarget(self, action: #selector(deleteAccountTapped), for: .touchUpInside)
         return b
@@ -188,66 +186,206 @@ final class SettingsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.96, alpha: 1)
+        view.backgroundColor = .viewsBackGourdColor
         navigationController?.setNavigationBarHidden(true, animated: false)
-        loadProfile()
         setupUI()
         setupConstraints()
         setupGenderButtons()
+        loadAndRefresh()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
-        loadProfile()
-        refreshProfileUI()
+        loadAndRefresh()
     }
 
     // MARK: - Load
 
-    private func loadProfile() {
-        profileImage   = BabyProfileStore.loadPhoto()
-        profileName    = BabyProfileStore.loadName()
-        profileBirthday = BabyProfileStore.loadBirthday()
-        profileGender  = BabyProfileStore.loadGender() ?? "Other"
-        selectedGender = Gender(rawValue: profileGender) ?? .other
+    private func loadAndRefresh() {
+        profiles = BabyProfileStore.loadProfiles()
+        selectedIndex = BabyProfileStore.selectedIndex()
+        rebuildSwitcher()
+        fillForm(from: currentProfile())
     }
 
-    private func refreshProfileUI() {
-        if let img = profileImage {
-            profilePhotoButton.setBackgroundImage(img, for: .normal)
+    private func currentProfile() -> BabyProfile? {
+        guard selectedIndex < profiles.count else { return profiles.first }
+        return profiles[selectedIndex]
+    }
+
+    // MARK: - Profile switcher
+
+    private func rebuildSwitcher() {
+        switcherStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        for (i, profile) in profiles.enumerated() {
+            let item = makeProfileSwitcherItem(profile: profile, index: i, isSelected: i == selectedIndex)
+            switcherStack.addArrangedSubview(item)
+        }
+
+        // "Add New" button
+        let addItem = makeAddNewItem()
+        switcherStack.addArrangedSubview(addItem)
+    }
+
+    private func makeProfileSwitcherItem(profile: BabyProfile, index: Int, isSelected: Bool) -> UIView {
+        let container = UIView()
+        container.tag = index
+
+        let ring = UIView()
+        ring.layer.cornerRadius = 32 * Constraint.yCoeff
+        ring.layer.borderWidth  = isSelected ? 2.5 : 0
+        ring.layer.borderColor  = UIColor(hexString: "#6c5fcd").cgColor
+        ring.clipsToBounds = false
+
+        let avatarBtn = UIButton(type: .custom)
+        avatarBtn.layer.cornerRadius = 30 * Constraint.yCoeff
+        avatarBtn.clipsToBounds = true
+        avatarBtn.backgroundColor = UIColor(hexString: "#c5d8dc")
+        avatarBtn.setImage(UIImage(systemName: "person.fill"), for: .normal)
+        avatarBtn.tintColor = .white
+        avatarBtn.tag = index
+        avatarBtn.addTarget(self, action: #selector(switcherTapped(_:)), for: .touchUpInside)
+
+        if let photo = profile.photo {
+            avatarBtn.setBackgroundImage(photo, for: .normal)
+            avatarBtn.setImage(nil, for: .normal)
+            avatarBtn.contentHorizontalAlignment = .fill
+            avatarBtn.contentVerticalAlignment   = .fill
+        }
+
+        let nameL = UILabel()
+        nameL.text = profile.name.isEmpty ? "Baby" : profile.name
+        nameL.font = .systemFont(ofSize: 12 * Constraint.yCoeff, weight: isSelected ? .semibold : .regular)
+        nameL.textColor = isSelected ? UIColor(hexString: "#6c5fcd") : UIColor(hexString: "#888888")
+        nameL.textAlignment = .center
+
+        ring.addSubview(avatarBtn)
+        container.addSubview(ring)
+        container.addSubview(nameL)
+
+        let itemWidth = 72 * Constraint.xCoeff
+        container.snp.makeConstraints { $0.width.equalTo(itemWidth) }
+
+        avatarBtn.snp.makeConstraints { $0.center.equalToSuperview(); $0.width.height.equalTo(60 * Constraint.yCoeff) }
+        ring.snp.makeConstraints {
+            $0.top.equalToSuperview()
+            $0.centerX.equalToSuperview()
+            $0.width.height.equalTo(64 * Constraint.yCoeff)
+        }
+        nameL.snp.makeConstraints {
+            $0.top.equalTo(ring.snp.bottom).offset(6 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview()
+            $0.bottom.equalToSuperview()
+        }
+
+        return container
+    }
+
+    private func makeAddNewItem() -> UIView {
+        let container = UIView()
+
+        let circle = UIView()
+        circle.layer.cornerRadius = 30 * Constraint.yCoeff
+        circle.layer.borderWidth  = 1.5
+        circle.layer.borderColor  = UIColor(hexString: "#cccccc").cgColor
+        circle.backgroundColor    = .clear
+
+        // Dashed border via CAShapeLayer
+        let dash = CAShapeLayer()
+        dash.strokeColor   = UIColor(hexString: "#bbbbbb").cgColor
+        dash.fillColor     = UIColor.clear.cgColor
+        dash.lineWidth     = 1.5
+        dash.lineDashPattern = [6, 4]
+        circle.layer.borderWidth = 0  // use dash layer instead
+        circle.layer.addSublayer(dash)
+
+        let plusLabel = UILabel()
+        plusLabel.text = "+"
+        plusLabel.font = .systemFont(ofSize: 24 * Constraint.yCoeff, weight: .light)
+        plusLabel.textColor = UIColor(hexString: "#bbbbbb")
+        plusLabel.textAlignment = .center
+
+        let addLabel = UILabel()
+        addLabel.text = "Add New"
+        addLabel.font = .systemFont(ofSize: 12 * Constraint.yCoeff, weight: .regular)
+        addLabel.textColor = UIColor(hexString: "#888888")
+        addLabel.textAlignment = .center
+
+        let tapBtn = UIButton(type: .system)
+        tapBtn.addTarget(self, action: #selector(addNewProfile), for: .touchUpInside)
+
+        circle.addSubview(plusLabel)
+        container.addSubview(circle)
+        container.addSubview(addLabel)
+        container.addSubview(tapBtn)
+
+        let itemWidth = 72 * Constraint.xCoeff
+        container.snp.makeConstraints { $0.width.equalTo(itemWidth) }
+
+        plusLabel.snp.makeConstraints { $0.center.equalToSuperview() }
+        circle.snp.makeConstraints {
+            $0.top.equalToSuperview()
+            $0.centerX.equalToSuperview()
+            $0.width.height.equalTo(60 * Constraint.yCoeff)
+        }
+        addLabel.snp.makeConstraints {
+            $0.top.equalTo(circle.snp.bottom).offset(6 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview()
+            $0.bottom.equalToSuperview()
+        }
+        tapBtn.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        // Draw dashed circle after layout
+        DispatchQueue.main.async {
+            let radius = 30 * Constraint.yCoeff
+            let size   = 60 * Constraint.yCoeff
+            let path = UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: size, height: size), cornerRadius: radius)
+            dash.path   = path.cgPath
+            dash.frame  = CGRect(x: 0, y: 0, width: size, height: size)
+        }
+
+        return container
+    }
+
+    // MARK: - Form
+
+    private func fillForm(from profile: BabyProfile?) {
+        guard let profile else { return }
+        if let photo = profile.photo {
+            profilePhotoButton.setBackgroundImage(photo, for: .normal)
             profilePhotoButton.setImage(nil, for: .normal)
             profilePhotoButton.contentHorizontalAlignment = .fill
-            profilePhotoButton.contentVerticalAlignment = .fill
-            avatarButton.setBackgroundImage(img, for: .normal)
-            avatarButton.setImage(nil, for: .normal)
-            avatarButton.contentHorizontalAlignment = .fill
-            avatarButton.contentVerticalAlignment = .fill
+            profilePhotoButton.contentVerticalAlignment   = .fill
+        } else {
+            profilePhotoButton.setBackgroundImage(nil, for: .normal)
+            profilePhotoButton.setImage(UIImage(systemName: "person.fill"), for: .normal)
         }
-        nameTextField.text = profileName
-        if let bday = profileBirthday {
+        nameTextField.text = profile.name.isEmpty ? nil : profile.name
+        if let bday = profile.birthday {
             let df = DateFormatter(); df.dateFormat = "dd.MM.yyyy"
             birthdayTextField.text = df.string(from: bday)
+            datePicker.date = bday
+        } else {
+            birthdayTextField.text = nil
         }
-        selectedGender = Gender(rawValue: profileGender) ?? .other
+        selectedGender = Gender(rawValue: profile.gender) ?? .other
     }
 
     // MARK: - Setup UI
 
     private func setupUI() {
-        view.addSubview(headerView)
-        headerView.addSubview(avatarButton)
-        headerView.addSubview(headerTitleLabel)
-        headerView.addSubview(gearButton)
+        view.addSubview(pageTitleLabel)
+        view.addSubview(switcherScrollView)
+        switcherScrollView.addSubview(switcherStack)
 
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
 
-        contentView.addSubview(profileSectionLabel)
         contentView.addSubview(profileCard)
-
         profileCard.addSubview(profilePhotoButton)
-        profileCard.addSubview(cameraOverlay)
+        profileCard.addSubview(cameraButton)
         profileCard.addSubview(nameLabel)
         profileCard.addSubview(nameTextField)
         profileCard.addSubview(birthdayLabel)
@@ -261,32 +399,31 @@ final class SettingsViewController: UIViewController {
         contentView.addSubview(notificationsRow)
         contentView.addSubview(exportRow)
         contentView.addSubview(darkModeRow)
+        contentView.addSubview(deleteChildButton)
         contentView.addSubview(deleteAccountButton)
     }
 
     private func setupConstraints() {
         let hPad = 16 * Constraint.xCoeff
 
-        headerView.snp.makeConstraints {
-            $0.top.leading.trailing.equalTo(view.safeAreaLayoutGuide)
-            $0.height.equalTo(52 * Constraint.yCoeff)
-        }
-        avatarButton.snp.makeConstraints {
+        pageTitleLabel.snp.makeConstraints {
+            $0.top.equalTo(view.safeAreaLayoutGuide).offset(16 * Constraint.yCoeff)
             $0.leading.equalToSuperview().offset(hPad)
-            $0.centerY.equalToSuperview()
-            $0.width.height.equalTo(40 * Constraint.yCoeff)
         }
-        headerTitleLabel.snp.makeConstraints {
-            $0.center.equalToSuperview()
+
+        switcherScrollView.snp.makeConstraints {
+            $0.top.equalTo(pageTitleLabel.snp.bottom).offset(16 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview()
+            $0.height.equalTo(100 * Constraint.yCoeff)
         }
-        gearButton.snp.makeConstraints {
-            $0.trailing.equalToSuperview().inset(hPad)
-            $0.centerY.equalToSuperview()
-            $0.width.height.equalTo(36 * Constraint.yCoeff)
+        switcherStack.snp.makeConstraints {
+            $0.top.bottom.equalToSuperview()
+            $0.leading.equalToSuperview().offset(hPad)
+            $0.trailing.lessThanOrEqualToSuperview().inset(hPad)
         }
 
         scrollView.snp.makeConstraints {
-            $0.top.equalTo(headerView.snp.bottom)
+            $0.top.equalTo(switcherScrollView.snp.bottom).offset(8 * Constraint.yCoeff)
             $0.leading.trailing.bottom.equalToSuperview()
         }
         contentView.snp.makeConstraints {
@@ -294,86 +431,89 @@ final class SettingsViewController: UIViewController {
             $0.width.equalTo(scrollView)
         }
 
-        // Profile section
-        profileSectionLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
-            $0.leading.equalToSuperview().offset(hPad)
-        }
+        // Profile card
         profileCard.snp.makeConstraints {
-            $0.top.equalTo(profileSectionLabel.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.top.equalToSuperview().offset(8 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hPad)
         }
         profilePhotoButton.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
+            $0.top.equalToSuperview().offset(24 * Constraint.yCoeff)
             $0.centerX.equalToSuperview()
-            $0.width.height.equalTo(80 * Constraint.yCoeff)
+            $0.width.height.equalTo(90 * Constraint.yCoeff)
         }
-        cameraOverlay.snp.makeConstraints {
-            $0.edges.equalTo(profilePhotoButton)
+        cameraButton.snp.makeConstraints {
+            $0.trailing.equalTo(profilePhotoButton.snp.trailing).offset(4 * Constraint.xCoeff)
+            $0.bottom.equalTo(profilePhotoButton.snp.bottom).offset(4 * Constraint.yCoeff)
+            $0.width.height.equalTo(28 * Constraint.yCoeff)
         }
         nameLabel.snp.makeConstraints {
-            $0.top.equalTo(profilePhotoButton.snp.bottom).offset(20 * Constraint.xCoeff)
+            $0.top.equalTo(profilePhotoButton.snp.bottom).offset(22 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
         }
         nameTextField.snp.makeConstraints {
-            $0.top.equalTo(nameLabel.snp.bottom).offset(6 * Constraint.xCoeff)
+            $0.top.equalTo(nameLabel.snp.bottom).offset(6 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
-            $0.height.equalTo(46 * Constraint.yCoeff)
+            $0.height.equalTo(48 * Constraint.yCoeff)
         }
         birthdayLabel.snp.makeConstraints {
-            $0.top.equalTo(nameTextField.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.top.equalTo(nameTextField.snp.bottom).offset(14 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
         }
         birthdayTextField.snp.makeConstraints {
-            $0.top.equalTo(birthdayLabel.snp.bottom).offset(6 * Constraint.xCoeff)
+            $0.top.equalTo(birthdayLabel.snp.bottom).offset(6 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
-            $0.height.equalTo(46 * Constraint.yCoeff)
+            $0.height.equalTo(48 * Constraint.yCoeff)
         }
         genderLabel.snp.makeConstraints {
-            $0.top.equalTo(birthdayTextField.snp.bottom).offset(14 * Constraint.xCoeff)
+            $0.top.equalTo(birthdayTextField.snp.bottom).offset(14 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
         }
         genderStack.snp.makeConstraints {
-            $0.top.equalTo(genderLabel.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.top.equalTo(genderLabel.snp.bottom).offset(8 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
-            $0.height.equalTo(42 * Constraint.yCoeff)
+            $0.height.equalTo(44 * Constraint.yCoeff)
         }
         saveProfileButton.snp.makeConstraints {
-            $0.top.equalTo(genderStack.snp.bottom).offset(18 * Constraint.xCoeff)
+            $0.top.equalTo(genderStack.snp.bottom).offset(20 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
-            $0.height.equalTo(50 * Constraint.yCoeff)
+            $0.height.equalTo(54 * Constraint.yCoeff)
         }
         profileSavedLabel.snp.makeConstraints {
-            $0.top.equalTo(saveProfileButton.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.top.equalTo(saveProfileButton.snp.bottom).offset(8 * Constraint.yCoeff)
             $0.centerX.equalToSuperview()
-            $0.bottom.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().inset(16 * Constraint.yCoeff)
         }
 
-        // Preferences section
+        // Preferences
         prefSectionLabel.snp.makeConstraints {
-            $0.top.equalTo(profileCard.snp.bottom).offset(24 * Constraint.xCoeff)
+            $0.top.equalTo(profileCard.snp.bottom).offset(28 * Constraint.yCoeff)
             $0.leading.equalToSuperview().offset(hPad)
         }
         notificationsRow.snp.makeConstraints {
-            $0.top.equalTo(prefSectionLabel.snp.bottom).offset(8 * Constraint.xCoeff)
+            $0.top.equalTo(prefSectionLabel.snp.bottom).offset(8 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hPad)
             $0.height.equalTo(64 * Constraint.yCoeff)
         }
         exportRow.snp.makeConstraints {
-            $0.top.equalTo(notificationsRow.snp.bottom).offset(10 * Constraint.xCoeff)
+            $0.top.equalTo(notificationsRow.snp.bottom).offset(10 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hPad)
             $0.height.equalTo(64 * Constraint.yCoeff)
         }
         darkModeRow.snp.makeConstraints {
-            $0.top.equalTo(exportRow.snp.bottom).offset(10 * Constraint.xCoeff)
+            $0.top.equalTo(exportRow.snp.bottom).offset(10 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hPad)
             $0.height.equalTo(64 * Constraint.yCoeff)
         }
-        deleteAccountButton.snp.makeConstraints {
-            $0.top.equalTo(darkModeRow.snp.bottom).offset(32 * Constraint.xCoeff)
+        deleteChildButton.snp.makeConstraints {
+            $0.top.equalTo(darkModeRow.snp.bottom).offset(32 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hPad)
-            $0.height.equalTo(50 * Constraint.yCoeff)
-            $0.bottom.equalToSuperview().inset(32 * Constraint.xCoeff)
+            $0.height.equalTo(52 * Constraint.yCoeff)
+        }
+        deleteAccountButton.snp.makeConstraints {
+            $0.top.equalTo(deleteChildButton.snp.bottom).offset(12 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview().inset(hPad)
+            $0.height.equalTo(52 * Constraint.yCoeff)
+            $0.bottom.equalToSuperview().inset(36 * Constraint.yCoeff)
         }
     }
 
@@ -386,12 +526,30 @@ final class SettingsViewController: UIViewController {
 
     private func updateGenderButtons() {
         let purple = UIColor(hexString: "#6c5fcd")
-        boyButton.setSelected(selectedGender == .boy,   selectedColor: purple)
+        boyButton.setSelected(selectedGender == .boy,    selectedColor: purple)
         girlButton.setSelected(selectedGender == .girl,  selectedColor: purple)
         otherButton.setSelected(selectedGender == .other, selectedColor: purple)
     }
 
     // MARK: - Actions
+
+    @objc private func switcherTapped(_ sender: UIButton) {
+        selectedIndex = sender.tag
+        BabyProfileStore.setSelectedIndex(selectedIndex)
+        rebuildSwitcher()
+        fillForm(from: currentProfile())
+    }
+
+    @objc private func addNewProfile() {
+        var profiles = BabyProfileStore.loadProfiles()
+        profiles.append(BabyProfile())
+        BabyProfileStore.saveProfiles(profiles)
+        self.profiles = profiles
+        selectedIndex = profiles.count - 1
+        BabyProfileStore.setSelectedIndex(selectedIndex)
+        rebuildSwitcher()
+        fillForm(from: currentProfile())
+    }
 
     @objc private func avatarTapped() {
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -403,8 +561,8 @@ final class SettingsViewController: UIViewController {
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         if let pop = alert.popoverPresentationController {
-            pop.sourceView = view
-            pop.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+            pop.sourceView = cameraButton
+            pop.sourceRect = cameraButton.bounds
         }
         present(alert, animated: true)
     }
@@ -418,14 +576,25 @@ final class SettingsViewController: UIViewController {
     }
 
     @objc private func saveProfile() {
+        var profiles = BabyProfileStore.loadProfiles()
+        guard selectedIndex < profiles.count else { return }
         let name = (nameTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        profileName = name.isEmpty ? nil : name
-        profileGender = selectedGender.rawValue
-        BabyProfileStore.saveName(profileName)
-        BabyProfileStore.saveBirthday(profileBirthday)
-        BabyProfileStore.saveGender(profileGender)
+        profiles[selectedIndex].name   = name
+        profiles[selectedIndex].gender = selectedGender.rawValue
+        if let birthday = profileBirthdayFromPicker() {
+            profiles[selectedIndex].birthday = birthday
+        }
+        BabyProfileStore.saveProfiles(profiles)
+        self.profiles = profiles
         view.endEditing(true)
+        rebuildSwitcher()
         showSaved()
+    }
+
+    private func profileBirthdayFromPicker() -> Date? {
+        guard let text = birthdayTextField.text, !text.isEmpty else { return nil }
+        let df = DateFormatter(); df.dateFormat = "dd.MM.yyyy"
+        return df.date(from: text)
     }
 
     private func showSaved() {
@@ -437,6 +606,41 @@ final class SettingsViewController: UIViewController {
                 self.profileSavedLabel.isHidden = true
             }
         }
+    }
+
+    @objc private func deleteChildTapped() {
+        let name = profiles[safe: selectedIndex]?.name
+        let displayName = (name?.isEmpty == false) ? name! : "this child"
+        let alert = UIAlertController(
+            title: "Delete Child Profile",
+            message: "Are you sure you want to delete the profile for \(displayName)? All data for this child will be removed.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            self?.performDeleteChild()
+        })
+        present(alert, animated: true)
+    }
+
+    private func performDeleteChild() {
+        guard profiles.count > 0 else { return }
+
+        profiles.remove(at: selectedIndex)
+
+        // If we deleted the last profile, create a blank one so app always has at least one
+        if profiles.isEmpty {
+            profiles.append(BabyProfile())
+        }
+
+        // Move to the previous profile, or stay at 0
+        selectedIndex = max(0, selectedIndex - 1)
+
+        BabyProfileStore.saveProfiles(profiles)
+        BabyProfileStore.setSelectedIndex(selectedIndex)
+
+        rebuildSwitcher()
+        fillForm(from: currentProfile())
     }
 
     @objc private func deleteAccountTapped() {
@@ -457,7 +661,6 @@ final class SettingsViewController: UIViewController {
             UserDefaults.standard.removePersistentDomain(forName: bundleId)
         }
         UserDefaults.standard.synchronize()
-
         guard let windowScene = view.window?.windowScene else { return }
         let welcome = WelcomeViewController()
         let window = UIWindow(windowScene: windowScene)
@@ -473,14 +676,12 @@ final class SettingsViewController: UIViewController {
     @objc private func doneDate() {
         let df = DateFormatter(); df.dateFormat = "dd.MM.yyyy"
         birthdayTextField.text = df.string(from: datePicker.date)
-        profileBirthday = datePicker.date
         birthdayTextField.resignFirstResponder()
     }
 
     @objc private func dateChanged(_ sender: UIDatePicker) {
         let df = DateFormatter(); df.dateFormat = "dd.MM.yyyy"
         birthdayTextField.text = df.string(from: sender.date)
-        profileBirthday = sender.date
     }
 
     // MARK: - Helpers
@@ -488,11 +689,11 @@ final class SettingsViewController: UIViewController {
     private func makeCard() -> UIView {
         let v = UIView()
         v.backgroundColor = .systemBackground
-        v.layer.cornerRadius = 16
-        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.cornerRadius = 20 * Constraint.yCoeff
+        v.layer.shadowColor   = UIColor.black.cgColor
         v.layer.shadowOpacity = 0.05
-        v.layer.shadowOffset = CGSize(width: 0, height: 2)
-        v.layer.shadowRadius = 6
+        v.layer.shadowOffset  = CGSize(width: 0, height: 2)
+        v.layer.shadowRadius  = 8
         return v
     }
 
@@ -507,19 +708,19 @@ final class SettingsViewController: UIViewController {
     private func makeFieldLabel(_ text: String) -> UILabel {
         let l = UILabel()
         l.text = text
-        l.font = .systemFont(ofSize: 13, weight: .semibold)
-        l.textColor = .secondaryLabel
+        l.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .semibold)
+        l.textColor = UIColor(hexString: "#333333")
         return l
     }
 
     private func makeTextField(placeholder: String) -> UITextField {
         let tf = UITextField()
         tf.placeholder = placeholder
-        tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
-        tf.layer.cornerRadius = 10
+        tf.backgroundColor = UIColor(hexString: "#f2f2f2")
+        tf.layer.cornerRadius = 12 * Constraint.yCoeff
         tf.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
         tf.leftViewMode = .always
-        tf.font = .systemFont(ofSize: 15)
+        tf.font = .systemFont(ofSize: 15 * Constraint.yCoeff)
         tf.textColor = .label
         return tf
     }
@@ -559,10 +760,7 @@ final class SettingsViewController: UIViewController {
             $0.centerY.equalToSuperview()
             $0.width.height.equalTo(38 * Constraint.yCoeff)
         }
-        iconImg.snp.makeConstraints {
-            $0.center.equalToSuperview()
-            $0.width.height.equalTo(20 * Constraint.yCoeff)
-        }
+        iconImg.snp.makeConstraints { $0.center.equalToSuperview(); $0.width.height.equalTo(20 * Constraint.yCoeff) }
         chevron.snp.makeConstraints {
             $0.trailing.equalToSuperview().inset(14 * Constraint.xCoeff)
             $0.centerY.equalToSuperview()
@@ -570,15 +768,14 @@ final class SettingsViewController: UIViewController {
             $0.height.equalTo(14 * Constraint.yCoeff)
         }
         titleL.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(12 * Constraint.xCoeff)
+            $0.top.equalToSuperview().offset(12 * Constraint.yCoeff)
             $0.leading.equalTo(iconBg.snp.trailing).offset(12 * Constraint.xCoeff)
             $0.trailing.lessThanOrEqualTo(chevron.snp.leading).offset(-8)
         }
         subL.snp.makeConstraints {
-            $0.top.equalTo(titleL.snp.bottom).offset(2 * Constraint.xCoeff)
+            $0.top.equalTo(titleL.snp.bottom).offset(2 * Constraint.yCoeff)
             $0.leading.equalTo(titleL)
         }
-
         return card
     }
 }
@@ -590,21 +787,29 @@ extension SettingsViewController: UIImagePickerControllerDelegate, UINavigationC
                                didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
         picker.dismiss(animated: true)
         guard let image = info[.originalImage] as? UIImage else { return }
-        profileImage = image
-        BabyProfileStore.savePhoto(image)
+
+        var profiles = BabyProfileStore.loadProfiles()
+        guard selectedIndex < profiles.count else { return }
+        profiles[selectedIndex].photoData = image.jpegData(compressionQuality: 0.85)
+        BabyProfileStore.saveProfiles(profiles)
+        self.profiles = profiles
 
         profilePhotoButton.setBackgroundImage(image, for: .normal)
         profilePhotoButton.setImage(nil, for: .normal)
         profilePhotoButton.contentHorizontalAlignment = .fill
-        profilePhotoButton.contentVerticalAlignment = .fill
-
-        avatarButton.setBackgroundImage(image, for: .normal)
-        avatarButton.setImage(nil, for: .normal)
-        avatarButton.contentHorizontalAlignment = .fill
-        avatarButton.contentVerticalAlignment = .fill
+        profilePhotoButton.contentVerticalAlignment   = .fill
+        rebuildSwitcher()
     }
 
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true)
+    }
+}
+
+// MARK: - Array safe subscript
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
