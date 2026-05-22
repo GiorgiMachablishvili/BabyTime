@@ -170,6 +170,8 @@ final class SettingsViewController: UIViewController {
         return b
     }()
 
+    private lazy var legalLinksView: UIView = makeLegalLinksView()
+
     private lazy var deleteAccountButton: UIButton = {
         let b = UIButton(type: .system)
         b.setTitle("Delete Account", for: .normal)
@@ -401,6 +403,7 @@ final class SettingsViewController: UIViewController {
         contentView.addSubview(darkModeRow)
         contentView.addSubview(deleteChildButton)
         contentView.addSubview(deleteAccountButton)
+        contentView.addSubview(legalLinksView)
     }
 
     private func setupConstraints() {
@@ -513,6 +516,10 @@ final class SettingsViewController: UIViewController {
             $0.top.equalTo(deleteChildButton.snp.bottom).offset(12 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hPad)
             $0.height.equalTo(52 * Constraint.yCoeff)
+        }
+        legalLinksView.snp.makeConstraints {
+            $0.top.equalTo(deleteAccountButton.snp.bottom).offset(24 * Constraint.yCoeff)
+            $0.centerX.equalToSuperview()
             $0.bottom.equalToSuperview().inset(36 * Constraint.yCoeff)
         }
     }
@@ -643,6 +650,16 @@ final class SettingsViewController: UIViewController {
         fillForm(from: currentProfile())
     }
 
+    @objc private func termsTapped() {
+        guard let url = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    @objc private func privacyTapped() {
+        guard let url = URL(string: "https://www.privacypolicies.com/live/placeholder") else { return }
+        UIApplication.shared.open(url)
+    }
+
     @objc private func deleteAccountTapped() {
         let alert = UIAlertController(
             title: "Delete Account",
@@ -685,6 +702,45 @@ final class SettingsViewController: UIViewController {
     }
 
     // MARK: - Helpers
+
+    private func makeLegalLinksView() -> UIView {
+        let container = UIView()
+
+        let termsBtn = UIButton(type: .system)
+        termsBtn.setTitle("Terms of Use", for: .normal)
+        termsBtn.setTitleColor(UIColor(hexString: "#aaaaaa"), for: .normal)
+        termsBtn.titleLabel?.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
+        termsBtn.addTarget(self, action: #selector(termsTapped), for: .touchUpInside)
+
+        let dotLabel = UILabel()
+        dotLabel.text = "•"
+        dotLabel.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
+        dotLabel.textColor = UIColor(hexString: "#aaaaaa")
+
+        let privacyBtn = UIButton(type: .system)
+        privacyBtn.setTitle("Privacy Policy", for: .normal)
+        privacyBtn.setTitleColor(UIColor(hexString: "#aaaaaa"), for: .normal)
+        privacyBtn.titleLabel?.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
+        privacyBtn.addTarget(self, action: #selector(privacyTapped), for: .touchUpInside)
+
+        container.addSubview(termsBtn)
+        container.addSubview(dotLabel)
+        container.addSubview(privacyBtn)
+
+        termsBtn.snp.makeConstraints {
+            $0.leading.top.bottom.equalToSuperview()
+        }
+        dotLabel.snp.makeConstraints {
+            $0.leading.equalTo(termsBtn.snp.trailing).offset(8 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+        }
+        privacyBtn.snp.makeConstraints {
+            $0.leading.equalTo(dotLabel.snp.trailing).offset(8 * Constraint.xCoeff)
+            $0.top.bottom.trailing.equalToSuperview()
+        }
+
+        return container
+    }
 
     private func makeCard() -> UIView {
         let v = UIView()
