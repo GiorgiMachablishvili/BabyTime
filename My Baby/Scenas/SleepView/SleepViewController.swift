@@ -143,8 +143,10 @@ final class SleepViewController: UIViewController {
     private lazy var logPastButton: UIButton = {
         let b = UIButton(type: .system)
         b.setTitle("Log past sleep", for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: .medium)
-        b.setTitleColor(UIColor(hexString: "#8b6dc4"), for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: .semibold)
+        b.setTitleColor(.white, for: .normal)
+        b.backgroundColor = UIColor(hexString: "#a98fd4")
+        b.layer.cornerRadius = 28 * Constraint.yCoeff
         b.addTarget(self, action: #selector(logPastTapped), for: .touchUpInside)
         return b
     }()
@@ -193,8 +195,9 @@ final class SleepViewController: UIViewController {
             $0.height.equalTo(56 * Constraint.yCoeff)
         }
         logPastButton.snp.makeConstraints {
-            $0.centerX.equalToSuperview()
+            $0.leading.trailing.equalToSuperview().inset(24 * Constraint.xCoeff)
             $0.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).inset(8 * Constraint.yCoeff)
+            $0.height.equalTo(56 * Constraint.yCoeff)
         }
     }
 
@@ -323,7 +326,7 @@ final class SleepViewController: UIViewController {
         } else {
             snap.appendItems(daySessions.map { Item.session($0.id) }, toSection: .todayLog)
         }
-        snap.reloadSections([.todayLog])
+        snap.reloadSections([.ringStats, .todayLog])
         dataSource.apply(snap, animatingDifferences: true)
     }
 
@@ -371,9 +374,16 @@ final class SleepViewController: UIViewController {
     }
 
     @objc private func logPastTapped() {
-        let alert = UIAlertController(title: "Log past sleep", message: "This feature is coming soon.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        let vc = LogPastSleepViewController()
+        vc.onSave = { [weak self] session in
+            guard let self else { return }
+            self.sessions.append(session)
+            self.sessions.sort { $0.start > $1.start }
+            SleepSessionStore.save(self.sessions)
+            self.applySnapshot()
+        }
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true)
     }
 
     private func deleteSession(id: UUID) {
@@ -640,6 +650,9 @@ final class SleepRingStatsCell: UICollectionViewCell {
         contentView.backgroundColor = .white
         contentView.layer.cornerRadius = 20 * Constraint.yCoeff
         contentView.clipsToBounds = true
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(goalTapped))
+        contentView.addGestureRecognizer(tap)
 
         contentView.addSubview(ringView)
         contentView.addSubview(totalLabel)
