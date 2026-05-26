@@ -28,8 +28,8 @@ extension DiaperType {
     var badgeTitle: String {
         switch self {
         case .wet:   return "Wet"
-        case .dirty: return "Dirty"
-        case .mixed: return "Mixed"
+        case .dirty: return "Dry"
+        case .mixed: return "Hard"
         }
     }
 }

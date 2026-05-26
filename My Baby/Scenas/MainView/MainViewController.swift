@@ -7,7 +7,6 @@ final class MainViewController: UIViewController {
         case profile
         case grid
         case history
-        case development
     }
     fileprivate enum GridItem: Int, CaseIterable {
         case feeding, sleep, diaper, growth, vaccination, doctorVisit
@@ -159,64 +158,6 @@ final class MainViewController: UIViewController {
         v.minimumScaleFactor = 0.7
         return v
     }()
-    // Development section
-    private lazy var developmentTitleLabel: UILabel = {
-        let v = UILabel()
-        v.text = "Development"
-        v.font = .systemFont(ofSize: 22, weight: .bold)
-        v.textColor = UIColor(hexString: "#222222")
-        return v
-    }()
-    private lazy var milestoneCard: UIView = {
-        let v = UIView()
-        v.backgroundColor = .systemBackground
-        v.layer.cornerRadius = 20
-        v.layer.shadowColor = UIColor.black.cgColor
-        v.layer.shadowOpacity = 0.05
-        v.layer.shadowRadius = 8
-        v.layer.shadowOffset = CGSize(width: 0, height: 2)
-        return v
-    }()
-    private lazy var milestoneTitleLabel: UILabel = {
-        let v = UILabel()
-        v.text = "Next Milestone"
-        v.font = .systemFont(ofSize: 22, weight: .bold)
-        v.textColor = UIColor(hexString: "#222222")
-        return v
-    }()
-    private lazy var milestoneSubtitleLabel: UILabel = {
-        let v = UILabel()
-        v.text = "Sitting without support"
-        v.font = .systemFont(ofSize: 14, weight: .regular)
-        v.textColor = UIColor(hexString: "#888888")
-        return v
-    }()
-    private lazy var progressBadge: UIView = {
-        let v = UIView()
-        v.backgroundColor = UIColor(hexString: "#6aab90")
-        v.layer.cornerRadius = 12
-        let lbl = UILabel()
-        lbl.text = "80% Progress"
-        lbl.font = .systemFont(ofSize: 12, weight: .semibold)
-        lbl.textColor = .white
-        v.addSubview(lbl)
-        lbl.snp.makeConstraints { $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 4, left: 10, bottom: 4, right: 10)) }
-        return v
-    }()
-    private lazy var progressBar: UIView = {
-        let bg = UIView()
-        bg.backgroundColor = UIColor(hexString: "#e0e0e0")
-        bg.layer.cornerRadius = 4
-        let fill = UIView()
-        fill.backgroundColor = UIColor(hexString: "#6aab90")
-        fill.layer.cornerRadius = 4
-        bg.addSubview(fill)
-        fill.snp.makeConstraints {
-            $0.leading.top.bottom.equalToSuperview()
-            $0.width.equalToSuperview().multipliedBy(0.8)
-        }
-        return bg
-    }()
     // MARK: - Grid card views (keep reference to update values)
     private var gridCards: [GridItem: HomeGridCard] = [:]
     // MARK: - Lifecycle
@@ -251,13 +192,6 @@ final class MainViewController: UIViewController {
         historyIconBg.addSubview(historyIconView)
         historyCard.addSubview(historyTopLabel)
         historyCard.addSubview(historyBottomLabel)
-        // Development
-        contentView.addSubview(developmentTitleLabel)
-        contentView.addSubview(milestoneCard)
-        milestoneCard.addSubview(milestoneTitleLabel)
-        milestoneCard.addSubview(milestoneSubtitleLabel)
-        milestoneCard.addSubview(progressBadge)
-        milestoneCard.addSubview(progressBar)
     }
     private func buildGrid() {
         // 2-column grid: feeding/sleep, diaper/growth, vaccination/doctorVisit
@@ -361,33 +295,8 @@ final class MainViewController: UIViewController {
             $0.trailing.lessThanOrEqualToSuperview().offset(-8 * Constraint.yCoeff)
             $0.bottom.lessThanOrEqualToSuperview().offset(-14 * Constraint.xCoeff)
         }
-        // Development
-        developmentTitleLabel.snp.makeConstraints {
-            $0.top.equalTo(historyCard.snp.bottom).offset(28 * Constraint.xCoeff)
-            $0.leading.trailing.equalToSuperview().inset(pad)
-        }
-        milestoneCard.snp.makeConstraints {
-            $0.top.equalTo(developmentTitleLabel.snp.bottom).offset(12 * Constraint.xCoeff)
-            $0.leading.trailing.equalToSuperview().inset(pad)
-            $0.bottom.equalToSuperview().offset(-32 * Constraint.xCoeff)
-        }
-        milestoneTitleLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(20 * Constraint.xCoeff)
-            $0.leading.equalToSuperview().offset(20 * Constraint.yCoeff)
-        }
-        milestoneSubtitleLabel.snp.makeConstraints {
-            $0.top.equalTo(milestoneTitleLabel.snp.bottom).offset(4 * Constraint.xCoeff)
-            $0.leading.equalTo(milestoneTitleLabel)
-        }
-        progressBadge.snp.makeConstraints {
-            $0.centerY.equalTo(milestoneTitleLabel)
-            $0.trailing.equalToSuperview().offset(-20 * Constraint.yCoeff)
-        }
-        progressBar.snp.makeConstraints {
-            $0.top.equalTo(milestoneSubtitleLabel.snp.bottom).offset(14 * Constraint.xCoeff)
-            $0.leading.trailing.equalToSuperview().inset(20 * Constraint.yCoeff)
-            $0.height.equalTo(8)
-            $0.bottom.equalToSuperview().offset(-20 * Constraint.xCoeff)
+        contentView.snp.makeConstraints {
+            $0.bottom.equalTo(historyCard.snp.bottom).offset(32 * Constraint.xCoeff)
         }
     }
     // MARK: - Data

@@ -6,7 +6,7 @@ final class DiaperQuickLogCell: UICollectionViewCell {
 
     var onQuickLog: ((DiaperType) -> Void)?
 
-    private lazy var wetButton  = makeButton(type: .wet)
+    private lazy var wetButton   = makeButton(type: .wet)
     private lazy var dirtyButton = makeButton(type: .dirty)
     private lazy var mixedButton = makeButton(type: .mixed)
 
@@ -28,28 +28,70 @@ final class DiaperQuickLogCell: UICollectionViewCell {
     private func makeButton(type: DiaperType) -> UIView {
         let container = UIView()
         container.backgroundColor = .white
-        container.layer.cornerRadius = 16 * Constraint.yCoeff
-        container.layer.borderWidth = 1.5
-        container.layer.borderColor = UIColor(hexString: "#e8e8e8").cgColor
+        container.layer.cornerRadius = 18 * Constraint.yCoeff
+        container.layer.shadowColor  = UIColor.black.cgColor
+        container.layer.shadowOpacity = 0.06
+        container.layer.shadowRadius  = 6
+        container.layer.shadowOffset  = CGSize(width: 0, height: 2)
+        // Shadow needs masksToBounds = false; clip via sublayer if needed
+        container.clipsToBounds = false
 
+        // Icon
         let icon = UIImageView(image: UIImage(systemName: type.sfSymbol))
         icon.tintColor = type.accentColor
         icon.contentMode = .scaleAspectFit
+        icon.isUserInteractionEnabled = false
 
+        // "+" badge — top-right of the icon
+        let badge = UIView()
+        badge.backgroundColor = type.accentColor
+        badge.layer.cornerRadius = 9 * Constraint.yCoeff
+        badge.isUserInteractionEnabled = false
+
+        let plusLbl = UILabel()
+        plusLbl.text = "+"
+        plusLbl.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .semibold)
+        plusLbl.textColor = .white
+        plusLbl.textAlignment = .center
+        plusLbl.isUserInteractionEnabled = false
+        badge.addSubview(plusLbl)
+        plusLbl.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        // Rounded clip view so corner radius applies without losing shadow on container
+        let clipView = UIView()
+        clipView.backgroundColor = .white
+        clipView.layer.cornerRadius = 18 * Constraint.yCoeff
+        clipView.clipsToBounds = true
+        container.addSubview(clipView)
+        clipView.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        // Label
         let label = UILabel()
         label.text = type.badgeTitle
         label.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .medium)
         label.textColor = UIColor(hexString: "#444444")
         label.textAlignment = .center
+        label.isUserInteractionEnabled = false
 
-        let stack = UIStackView(arrangedSubviews: [icon, label])
-        stack.axis = .vertical
-        stack.spacing = 6 * Constraint.yCoeff
-        stack.alignment = .center
+        clipView.addSubview(icon)
+        container.addSubview(badge)   // added to container (above clipView) so shadow doesn't clip it
+        clipView.addSubview(label)
 
-        container.addSubview(stack)
-        icon.snp.makeConstraints { $0.width.height.equalTo(22 * Constraint.yCoeff) }
-        stack.snp.makeConstraints { $0.center.equalToSuperview() }
+        icon.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.centerY.equalToSuperview().offset(-12 * Constraint.yCoeff)
+            $0.width.height.equalTo(30 * Constraint.yCoeff)
+        }
+        badge.snp.makeConstraints {
+            $0.width.height.equalTo(18 * Constraint.yCoeff)
+            $0.leading.equalTo(icon.snp.trailing).offset(-6 * Constraint.xCoeff)
+            $0.top.equalTo(icon).offset(-6 * Constraint.yCoeff)
+        }
+        label.snp.makeConstraints {
+            $0.top.equalTo(icon.snp.bottom).offset(10 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview().inset(4 * Constraint.xCoeff)
+            $0.bottom.lessThanOrEqualToSuperview().inset(12 * Constraint.yCoeff)
+        }
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(buttonTapped(_:)))
         container.addGestureRecognizer(tap)

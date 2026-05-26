@@ -24,6 +24,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.windowScene = windowScene
         window?.rootViewController = rootVC
         window?.makeKeyAndVisible()
+
+        // Restore dark / light preference immediately so there's no flash
+        let savedStyle: UIUserInterfaceStyle = ThemeManager.shared.isDarkMode ? .dark : .light
+        window?.overrideUserInterfaceStyle = savedStyle
     }
 
 

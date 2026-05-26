@@ -196,19 +196,10 @@ final class DoctorVisitViewController: UIViewController {
     @objc private func fabTapped() { presentAddVisit() }
 
     private func presentAddVisit() {
-        let alert = UIAlertController(title: "Add Doctor Visit", message: nil, preferredStyle: .alert)
-        alert.addTextField { $0.placeholder = "Doctor name" }
-        alert.addTextField { $0.placeholder = "Visit reason (e.g. Well-check)" }
-        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self, weak alert] _ in
-            guard let self, let doctor = alert?.textFields?[0].text, !doctor.isEmpty,
-                  let reason = alert?.textFields?[1].text else { return }
-            let v = DoctorVisit(doctorName: doctor, visitDate: Date().addingTimeInterval(7 * 86400),
-                                visitTitle: reason.isEmpty ? "Visit" : reason)
-            DoctorVisitStore.upsert(v)
-            self.loadData()
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        let vc = NewDoctorVisitViewController()
+        vc.onSave = { [weak self] in self?.loadData() }
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true)
     }
 
     private func presentEdit(visit: DoctorVisit) {
@@ -244,12 +235,7 @@ final class DoctorVisitViewController: UIViewController {
     }
 
     private func presentCalendar() {
-        if #available(iOS 16.0, *) {
-            let vc = DoctorVisitCalendarViewController()
-            vc.onWillDismiss = { [weak self] in self?.loadData() }
-            let nav = UINavigationController(rootViewController: vc)
-            present(nav, animated: true)
-        }
+        presentAddVisit()
     }
 
     private func deleteVisit(id: UUID) {

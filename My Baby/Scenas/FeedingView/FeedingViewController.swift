@@ -214,7 +214,7 @@ final class FeedingViewController: UIViewController {
             case .quickActions:
                 let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .fractionalHeight(1)))
                 let group = NSCollectionLayoutGroup.horizontal(
-                    layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(184 * Constraint.yCoeff)),
+                    layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(200 * Constraint.yCoeff)),
                     subitems: [item]
                 )
                 let sec = NSCollectionLayoutSection(group: group)
@@ -1037,10 +1037,38 @@ final class FeedingQuickActionsCell: UICollectionViewCell {
 
     var onQuickLog: ((FeedingTypeView.FeedingType) -> Void)?
 
-    private lazy var breastBtn  = makeBtn(title: "Start Breast", icon: "heart.fill",    color: UIColor(hexString: "#e07a5f"), tag: 0)
-    private lazy var bottleBtn  = makeBtn(title: "Bottle",       icon: "waterbottle",    color: UIColor(hexString: "#9b7fd4"), tag: 1)
-    private lazy var solidsBtn  = makeBtn(title: "Solids",       icon: "fork.knife",     color: UIColor(hexString: "#5aac7c"), tag: 2)
-    private lazy var formulaBtn = makeBtn(title: "Formula",      icon: "drop.fill",      color: UIColor(hexString: "#4a9fc4"), tag: 3)
+    private lazy var breastBtn  = makeBtn(
+        title: "Start Breast", icon: "heart.fill",
+        cardColor:   UIColor(hexString: "#f0b5a0"),
+        circleBg:    UIColor(hexString: "#c8836a").withAlphaComponent(0.45),
+        iconTint:    .white,
+        labelColor:  UIColor(hexString: "#6b3020"),
+        tag: 0
+    )
+    private lazy var bottleBtn  = makeBtn(
+        title: "Bottle", icon: "waterbottle",
+        cardColor:   UIColor(hexString: "#9b7fd4"),
+        circleBg:    UIColor(white: 0, alpha: 0.18),
+        iconTint:    .white,
+        labelColor:  .white,
+        tag: 1
+    )
+    private lazy var solidsBtn  = makeBtn(
+        title: "Solids", icon: "fork.knife",
+        cardColor:   UIColor(hexString: "#7d9e82"),
+        circleBg:    UIColor(white: 0, alpha: 0.18),
+        iconTint:    .white,
+        labelColor:  .white,
+        tag: 2
+    )
+    private lazy var formulaBtn = makeBtn(
+        title: "Formula", icon: "drop.fill",
+        cardColor:   UIColor(hexString: "#c8dff0"),
+        circleBg:    UIColor(hexString: "#88b8d8").withAlphaComponent(0.55),
+        iconTint:    UIColor(hexString: "#3a78b8"),
+        labelColor:  UIColor(hexString: "#3a78b8"),
+        tag: 3
+    )
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1067,30 +1095,72 @@ final class FeedingQuickActionsCell: UICollectionViewCell {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private func makeBtn(title: String, icon: String, color: UIColor, tag: Int) -> UIView {
+    private func makeBtn(title: String, icon: String,
+                         cardColor: UIColor, circleBg: UIColor,
+                         iconTint: UIColor, labelColor: UIColor,
+                         tag: Int) -> UIView {
         let container = UIView()
-        container.backgroundColor = color.withAlphaComponent(0.15)
-        container.layer.cornerRadius = 16 * Constraint.yCoeff
+        container.backgroundColor = cardColor
+        container.layer.cornerRadius = 20 * Constraint.yCoeff
+        container.clipsToBounds = true
+
+        // Icon circle
+        let iconCircle = UIView()
+        iconCircle.backgroundColor = circleBg
+        iconCircle.layer.cornerRadius = 28 * Constraint.yCoeff
+        iconCircle.clipsToBounds = true
+        iconCircle.isUserInteractionEnabled = false
 
         let iv = UIImageView(image: UIImage(systemName: icon))
-        iv.tintColor = color
+        iv.tintColor = iconTint
         iv.contentMode = .scaleAspectFit
+        iv.isUserInteractionEnabled = false
+        iconCircle.addSubview(iv)
+        iv.snp.makeConstraints { $0.center.equalToSuperview(); $0.width.height.equalTo(26 * Constraint.yCoeff) }
 
+        // "+" badge — sits on top of the circle, added to container so it isn't clipped by the circle
+        let badge = UIView()
+        badge.backgroundColor = UIColor(hexString: "#4a90d9")
+        badge.layer.cornerRadius = 10 * Constraint.yCoeff
+        badge.isUserInteractionEnabled = false
+        let plusLbl = UILabel()
+        plusLbl.text = "+"
+        plusLbl.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .semibold)
+        plusLbl.textColor = .white
+        plusLbl.textAlignment = .center
+        plusLbl.isUserInteractionEnabled = false
+        badge.addSubview(plusLbl)
+        plusLbl.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        // Label
         let lbl = UILabel()
         lbl.text = title
         lbl.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .semibold)
-        lbl.textColor = color
+        lbl.textColor = labelColor
         lbl.textAlignment = .center
+        lbl.numberOfLines = 2
+        lbl.isUserInteractionEnabled = false
 
-        let vStack = UIStackView(arrangedSubviews: [iv, lbl])
-        vStack.axis = .vertical
-        vStack.spacing = 6 * Constraint.yCoeff
-        vStack.alignment = .center
-        vStack.isUserInteractionEnabled = false
+        container.addSubview(iconCircle)
+        container.addSubview(badge)
+        container.addSubview(lbl)
 
-        container.addSubview(vStack)
-        iv.snp.makeConstraints { $0.width.height.equalTo(24 * Constraint.yCoeff) }
-        vStack.snp.makeConstraints { $0.center.equalToSuperview() }
+        iconCircle.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.centerY.equalToSuperview().offset(-10 * Constraint.yCoeff)
+            $0.width.height.equalTo(56 * Constraint.yCoeff)
+        }
+        // Badge at bottom-right edge of the circle
+        badge.snp.makeConstraints {
+            $0.width.height.equalTo(20 * Constraint.yCoeff)
+            $0.trailing.equalTo(iconCircle).offset(2 * Constraint.xCoeff)
+            $0.bottom.equalTo(iconCircle).offset(2 * Constraint.yCoeff)
+        }
+        lbl.snp.makeConstraints {
+            $0.top.equalTo(iconCircle.snp.bottom).offset(8 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview().inset(8 * Constraint.xCoeff)
+            $0.bottom.lessThanOrEqualToSuperview().inset(10 * Constraint.yCoeff)
+        }
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(btnTapped(_:)))
         container.addGestureRecognizer(tap)

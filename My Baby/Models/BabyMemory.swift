@@ -1,8 +1,8 @@
 import UIKit
 
-struct BabyMemory: Codable, Hashable {
+struct BabyMemory: Codable, Hashable, @unchecked Sendable {
 
-    enum Category: String, Codable, CaseIterable {
+    enum Category: String, Codable, CaseIterable, Sendable {
         case health, funny, memories, growth, other
 
         var title: String {

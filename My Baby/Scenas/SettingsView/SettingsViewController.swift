@@ -152,7 +152,7 @@ final class SettingsViewController: UIViewController {
     private lazy var prefSectionLabel = makeSectionTitle("PREFERENCES")
     private lazy var notificationsRow = makeSettingsRow(icon: "bell",                title: "Notifications", subtitle: "Coming soon")
     private lazy var exportRow        = makeSettingsRow(icon: "square.and.arrow.up", title: "Export Data",    subtitle: "Coming soon")
-    private lazy var darkModeRow      = makeSettingsRow(icon: "moon",                title: "Dark Mode",      subtitle: "Coming soon")
+    private lazy var darkModeRow      = makeDarkModeRow()
 
     // MARK: - Delete
 
@@ -765,14 +765,14 @@ final class SettingsViewController: UIViewController {
         let l = UILabel()
         l.text = text
         l.font = .systemFont(ofSize: 14 * Constraint.yCoeff, weight: .semibold)
-        l.textColor = UIColor(hexString: "#333333")
+        l.textColor = .label
         return l
     }
 
     private func makeTextField(placeholder: String) -> UITextField {
         let tf = UITextField()
         tf.placeholder = placeholder
-        tf.backgroundColor = UIColor(hexString: "#f2f2f2")
+        tf.backgroundColor = .fieldBackground
         tf.layer.cornerRadius = 12 * Constraint.yCoeff
         tf.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
         tf.leftViewMode = .always
@@ -831,6 +831,65 @@ final class SettingsViewController: UIViewController {
         subL.snp.makeConstraints {
             $0.top.equalTo(titleL.snp.bottom).offset(2 * Constraint.yCoeff)
             $0.leading.equalTo(titleL)
+        }
+        return card
+    }
+
+    // Dark Mode row: same layout but with a UISwitch instead of a chevron
+    private func makeDarkModeRow() -> UIView {
+        let card = makeCard()
+
+        let iconBg = UIView()
+        iconBg.backgroundColor = UIColor(white: 0.94, alpha: 1)
+        iconBg.layer.cornerRadius = 10
+        card.addSubview(iconBg)
+
+        let iconImg = UIImageView(image: UIImage(systemName: "moon.fill"))
+        iconImg.tintColor = UIColor(hexString: "#C6B4FE")
+        iconImg.contentMode = .scaleAspectFit
+        iconBg.addSubview(iconImg)
+
+        let titleL = UILabel()
+        titleL.text = "Dark Mode"
+        titleL.font = .systemFont(ofSize: 15, weight: .semibold)
+        titleL.textColor = .label
+        card.addSubview(titleL)
+
+        let subL = UILabel()
+        subL.text = ThemeManager.shared.isDarkMode ? "On" : "Off"
+        subL.font = .systemFont(ofSize: 12)
+        subL.textColor = .secondaryLabel
+        card.addSubview(subL)
+
+        let toggle = UISwitch()
+        toggle.isOn = ThemeManager.shared.isDarkMode
+        toggle.onTintColor = UIColor(hexString: "#C6B4FE")
+        toggle.addAction(UIAction { [weak subL] _ in
+            let isOn = toggle.isOn
+            ThemeManager.shared.isDarkMode = isOn
+            subL?.text = isOn ? "On" : "Off"
+        }, for: .valueChanged)
+        card.addSubview(toggle)
+
+        iconBg.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(14 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(38 * Constraint.yCoeff)
+        }
+        iconImg.snp.makeConstraints { $0.center.equalToSuperview(); $0.width.height.equalTo(20 * Constraint.yCoeff) }
+        toggle.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(14 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+        }
+        titleL.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(12 * Constraint.yCoeff)
+            $0.leading.equalTo(iconBg.snp.trailing).offset(12 * Constraint.xCoeff)
+            $0.trailing.lessThanOrEqualTo(toggle.snp.leading).offset(-8)
+        }
+        subL.snp.makeConstraints {
+            $0.top.equalTo(titleL.snp.bottom).offset(2 * Constraint.yCoeff)
+            $0.leading.equalTo(titleL)
+            $0.bottom.equalToSuperview().inset(12 * Constraint.yCoeff)
         }
         return card
     }

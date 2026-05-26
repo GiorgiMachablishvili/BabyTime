@@ -80,13 +80,7 @@ final class VaccinationViewController: UIViewController, UIAdaptivePresentationC
     }
 
     private func presentCalendar() {
-        if #available(iOS 16.0, *) {
-            let vc = VaccinationCalendarViewController()
-            vc.onWillDismiss = { [weak self] in self?.loadData() }
-            let nav = UINavigationController(rootViewController: vc)
-            nav.presentationController?.delegate = self
-            present(nav, animated: true)
-        }
+        presentAddVaccine()
     }
 
     private func setupDataSource() {
@@ -240,19 +234,10 @@ final class VaccinationViewController: UIViewController, UIAdaptivePresentationC
     }
 
     private func presentAddVaccine() {
-        let alert = UIAlertController(title: "Add Vaccine Record", message: "Enter vaccine name", preferredStyle: .alert)
-        alert.addTextField { tf in tf.placeholder = "Vaccine name (e.g. MMR)" }
-        alert.addTextField { tf in tf.placeholder = "Full name" }
-        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self, weak alert] _ in
-            guard let self,
-                  let name = alert?.textFields?[0].text, !name.isEmpty,
-                  let full = alert?.textFields?[1].text else { return }
-            let v = Vaccine(name: name, fullName: full.isEmpty ? name : full, ageRange: "")
-            VaccineStore.upsert(v)
-            self.loadData()
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        let vc = NewVaccinationViewController()
+        vc.onSave = { [weak self] in self?.loadData() }
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true)
     }
 
 }
@@ -578,6 +563,7 @@ final class VaccineCardCell: UICollectionViewCell {
     private let detailsStack: UIStackView = {
         let s = UIStackView(); s.axis = .vertical; s.spacing = 4 * Constraint.yCoeff; return s
     }()
+    private let ageRangeRow = UILabel()
     private let doseRow = UILabel()
     private let doctorRow = UILabel()
     private let separator: UIView = {
@@ -630,7 +616,7 @@ final class VaccineCardCell: UICollectionViewCell {
         warningLabel.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .semibold)
         warningLabel.textColor = UIColor(hexString: "#e74c3c")
 
-        for lbl in [doseRow, doctorRow] {
+        for lbl in [ageRangeRow, doseRow, doctorRow] {
             lbl.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
             lbl.textColor = UIColor(hexString: "#555555")
         }
@@ -648,6 +634,7 @@ final class VaccineCardCell: UICollectionViewCell {
         contentView.addSubview(warningLabel)
         contentView.addSubview(separator)
         contentView.addSubview(detailsStack)
+        detailsStack.addArrangedSubview(ageRangeRow)
         detailsStack.addArrangedSubview(doseRow)
         detailsStack.addArrangedSubview(doctorRow)
         contentView.addSubview(actionButton)
@@ -857,9 +844,11 @@ final class VaccineCardCell: UICollectionViewCell {
         }
 
         // Expanded details
-        let hasDetails = vaccine.doseInfoString != nil || vaccine.doctorName != nil
+        let hasDetails = !vaccine.ageRange.isEmpty || vaccine.doseInfoString != nil || vaccine.doctorName != nil
         let shouldShowDetails = expanded && hasDetails
 
+        ageRangeRow.isHidden = vaccine.ageRange.isEmpty
+        if !vaccine.ageRange.isEmpty { ageRangeRow.text = "Age group: \(vaccine.ageRange)" }
         doseRow.isHidden = vaccine.doseInfoString == nil
         doctorRow.isHidden = vaccine.doctorName == nil
         if let dose = vaccine.doseInfoString { doseRow.text = "Dose: \(dose)" }
@@ -928,7 +917,7 @@ final class VaccineCardCell: UICollectionViewCell {
             actionButton.snp.remakeConstraints {
                 $0.leading.equalTo(nameLabel)
                 $0.height.equalTo(0)
-                $0.top.equalTo(infoBottom).offset(12 * Constraint.yCoeff)
+                $0.top.equalTo(actionTop).offset(12 * Constraint.yCoeff)
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
             }
         case .upcoming:
@@ -936,7 +925,7 @@ final class VaccineCardCell: UICollectionViewCell {
             actionButton.snp.remakeConstraints {
                 $0.leading.equalTo(nameLabel)
                 $0.height.equalTo(0)
-                $0.top.equalTo(infoBottom).offset(12 * Constraint.yCoeff)
+                $0.top.equalTo(actionTop).offset(12 * Constraint.yCoeff)
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
             }
         default: // .completed
@@ -944,7 +933,7 @@ final class VaccineCardCell: UICollectionViewCell {
             actionButton.snp.remakeConstraints {
                 $0.leading.equalTo(nameLabel)
                 $0.height.equalTo(0)
-                $0.top.equalTo(infoBottom).offset(12 * Constraint.yCoeff)
+                $0.top.equalTo(actionTop).offset(12 * Constraint.yCoeff)
                 $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
             }
         }

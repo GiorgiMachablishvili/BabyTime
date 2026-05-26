@@ -7,13 +7,11 @@ final class MemoryViewController: UIViewController {
 
     // MARK: - State
     private var memories: [BabyMemory] = []
-    private var selectedFilter: BabyMemory.Category? = nil
     private var formCategory: BabyMemory.Category = .memories
-    private var expandedMemoryIDs: Set<UUID> = []
-    private var memoryCards: [UUID: MemoryCardView] = [:]
+    private var formCategoryButtons: [UIButton] = []
     private let placeholderText = "Baby took five steps towards the teddy bear today!"
 
-    // MARK: - Header
+    // MARK: - Top Bar
     private let topBar = HistoryTopBar()
 
     // MARK: - Scroll
@@ -21,45 +19,80 @@ final class MemoryViewController: UIViewController {
         let sv = UIScrollView()
         sv.alwaysBounceVertical = true
         sv.keyboardDismissMode = .onDrag
+        sv.showsVerticalScrollIndicator = false
         return sv
     }()
     private lazy var contentView = UIView()
+
+    // MARK: - Section title
+    private lazy var historyTitleLabel: UILabel = {
+        let l = UILabel()
+        l.text = "History"
+        l.font = .systemFont(ofSize: 28 * Constraint.yCoeff, weight: .bold)
+        l.textColor = UIColor(hexString: "#1a1a1a")
+        return l
+    }()
 
     // MARK: - Form card
     private lazy var formCard: UIView = {
         let v = UIView()
         v.backgroundColor = .white
         v.layer.cornerRadius = 20 * Constraint.yCoeff
-        v.clipsToBounds = true
+        v.layer.shadowColor   = UIColor.black.cgColor
+        v.layer.shadowOpacity = 0.06
+        v.layer.shadowRadius  = 10
+        v.layer.shadowOffset  = CGSize(width: 0, height: 3)
         return v
     }()
 
-    private lazy var addMemoryLabel: UILabel = {
-        let l = UILabel()
-        l.text = "Add Baby Memory"
-        l.font = .systemFont(ofSize: 17 * Constraint.yCoeff, weight: .bold)
-        l.textColor = UIColor(hexString: "#1a1a1a")
-        return l
+    // Card header: ✦ Add Baby Memory
+    private lazy var cardHeaderRow: UIView = {
+        let v = UIView()
+        let sparkle = UIImageView(image: UIImage(systemName: "sparkles"))
+        sparkle.tintColor = UIColor(hexString: "#8b6dc4")
+        sparkle.contentMode = .scaleAspectFit
+
+        let lbl = UILabel()
+        lbl.text = "Add Baby Memory"
+        lbl.font = .systemFont(ofSize: 17 * Constraint.yCoeff, weight: .bold)
+        lbl.textColor = UIColor(hexString: "#1a1a1a")
+
+        v.addSubview(sparkle)
+        v.addSubview(lbl)
+
+        sparkle.snp.makeConstraints {
+            $0.leading.equalToSuperview()
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(20 * Constraint.yCoeff)
+        }
+        lbl.snp.makeConstraints {
+            $0.leading.equalTo(sparkle.snp.trailing).offset(8 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.top.bottom.equalToSuperview()
+        }
+        return v
     }()
 
-    private lazy var titleFieldLabel = Self.makeFieldLabel("Title")
+    // Title field
+    private lazy var titleFieldLabel = makeFieldLabel("Title")
     private lazy var titleField: UITextField = {
         let tf = UITextField()
         tf.placeholder = "First Step"
         tf.font = .systemFont(ofSize: 15 * Constraint.yCoeff)
         tf.backgroundColor = UIColor(hexString: "#f5f5f5")
-        tf.layer.cornerRadius = 8 * Constraint.yCoeff
+        tf.layer.cornerRadius = 10 * Constraint.yCoeff
         tf.clipsToBounds = true
-        let pad = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 1))
+        let pad = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
         tf.leftView = pad; tf.leftViewMode = .always
         return tf
     }()
 
-    private lazy var dateFieldLabel = Self.makeFieldLabel("Date")
+    // Date field
+    private lazy var dateFieldLabel = makeFieldLabel("Date")
     private lazy var datePickerContainer: UIView = {
         let v = UIView()
         v.backgroundColor = UIColor(hexString: "#f5f5f5")
-        v.layer.cornerRadius = 8 * Constraint.yCoeff
+        v.layer.cornerRadius = 10 * Constraint.yCoeff
         v.clipsToBounds = true
         return v
     }()
@@ -71,21 +104,22 @@ final class MemoryViewController: UIViewController {
         return dp
     }()
 
-    private lazy var memoryFieldLabel = Self.makeFieldLabel("Write your memory...")
+    // Memory text area
+    private lazy var memoryFieldLabel = makeFieldLabel("Write your memory...")
     private lazy var memoryTextView: UITextView = {
         let tv = UITextView()
         tv.font = .systemFont(ofSize: 15 * Constraint.yCoeff)
         tv.backgroundColor = UIColor(hexString: "#f5f5f5")
-        tv.layer.cornerRadius = 8 * Constraint.yCoeff
-        tv.textContainerInset = UIEdgeInsets(top: 10, left: 8, bottom: 10, right: 8)
+        tv.layer.cornerRadius = 10 * Constraint.yCoeff
+        tv.textContainerInset = UIEdgeInsets(top: 12, left: 10, bottom: 12, right: 10)
         tv.text = placeholderText
         tv.textColor = .placeholderText
         tv.delegate = self
         return tv
     }()
 
-    private lazy var categoryFieldLabel = Self.makeFieldLabel("Category")
-    private var formCategoryButtons: [UIButton] = []
+    // Category pills
+    private lazy var categoryFieldLabel = makeFieldLabel("Category")
     private lazy var formCatRow1 = makeHStack()
     private lazy var formCatRow2 = makeHStack()
     private lazy var formCatContainer: UIStackView = {
@@ -94,66 +128,78 @@ final class MemoryViewController: UIViewController {
         return sv
     }()
 
+    // Save button
     private lazy var saveButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle("  Save Memory", for: .normal)
         b.setImage(UIImage(systemName: "square.and.arrow.down"), for: .normal)
+        b.setTitle("  Save Memory", for: .normal)
         b.tintColor = .white; b.setTitleColor(.white, for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 16 * Constraint.yCoeff, weight: .semibold)
-        b.backgroundColor = UIColor(hexString: "#8b6dc4")
+        b.backgroundColor = UIColor(hexString: "#3d2b7a")
         b.layer.cornerRadius = 14 * Constraint.yCoeff; b.clipsToBounds = true
         b.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
         return b
     }()
 
-    // MARK: - Saved Memories section
-    private lazy var savedMemoriesLabel: UILabel = {
-        let l = UILabel()
-        l.text = "Saved Memories"
-        l.font = .systemFont(ofSize: 20 * Constraint.yCoeff, weight: .bold)
-        l.textColor = UIColor(hexString: "#1a1a1a")
-        return l
-    }()
-
-
-    private lazy var filterScrollView: UIScrollView = {
-        let sv = UIScrollView()
-        sv.showsHorizontalScrollIndicator = false
-        sv.alwaysBounceHorizontal = true
-        return sv
-    }()
-    private lazy var filterStack: UIStackView = {
-        let sv = UIStackView()
-        sv.axis = .horizontal; sv.spacing = 8 * Constraint.xCoeff; sv.alignment = .center
-        return sv
-    }()
-    private var filterButtons: [UIButton] = []
-
-    private lazy var memoriesStack: UIStackView = {
-        let sv = UIStackView()
-        sv.axis = .vertical; sv.spacing = 12 * Constraint.yCoeff
-        return sv
-    }()
-
-    private lazy var emptyView: UIView = {
+    // MARK: - View All Memories card
+    private lazy var viewAllCard: UIView = {
         let v = UIView()
-        let img = UIImageView(image: UIImage(named: "teddy") ?? UIImage(systemName: "photo.on.rectangle.angled"))
-        img.tintColor = UIColor(hexString: "#cccccc")
-        img.contentMode = .scaleAspectFit
-        let lbl = UILabel()
-        lbl.text = "Capture every little moment"
-        lbl.font = .systemFont(ofSize: 14 * Constraint.yCoeff)
-        lbl.textColor = .secondaryLabel; lbl.textAlignment = .center
-        v.addSubview(img); v.addSubview(lbl)
-        img.snp.makeConstraints {
-            $0.centerX.equalToSuperview(); $0.top.equalToSuperview()
-            $0.width.height.equalTo(60 * Constraint.yCoeff)
+        v.backgroundColor = UIColor(hexString: "#f0f0f0")
+        v.layer.cornerRadius = 20 * Constraint.yCoeff
+
+        // Left icon
+        let iconBg = UIView()
+        iconBg.backgroundColor = UIColor(hexString: "#ede9f8")
+        iconBg.layer.cornerRadius = 18 * Constraint.yCoeff
+
+        let icon = UIImageView(image: UIImage(systemName: "book.fill"))
+        icon.tintColor = UIColor(hexString: "#8b6dc4")
+        icon.contentMode = .scaleAspectFit
+
+        // Labels
+        let titleLbl = UILabel()
+        titleLbl.text = "View All Memories"
+        titleLbl.font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: .semibold)
+        titleLbl.textColor = UIColor(hexString: "#1a1a1a")
+
+        let subtitleLbl = UILabel()
+        subtitleLbl.text = "Browse your complete history"
+        subtitleLbl.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .regular)
+        subtitleLbl.textColor = UIColor(hexString: "#888888")
+
+        // Chevron
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = UIColor(hexString: "#aaaaaa")
+        chevron.contentMode = .scaleAspectFit
+
+        v.addSubview(iconBg); iconBg.addSubview(icon)
+        v.addSubview(titleLbl); v.addSubview(subtitleLbl); v.addSubview(chevron)
+
+        iconBg.snp.makeConstraints {
+            $0.leading.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(44 * Constraint.yCoeff)
         }
-        lbl.snp.makeConstraints {
-            $0.centerX.equalToSuperview()
-            $0.top.equalTo(img.snp.bottom).offset(8 * Constraint.yCoeff)
-            $0.bottom.equalToSuperview()
+        icon.snp.makeConstraints { $0.center.equalToSuperview(); $0.width.height.equalTo(20 * Constraint.yCoeff) }
+        chevron.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.equalTo(10 * Constraint.xCoeff)
         }
+        titleLbl.snp.makeConstraints {
+            $0.leading.equalTo(iconBg.snp.trailing).offset(12 * Constraint.xCoeff)
+            $0.bottom.equalTo(v.snp.centerY).offset(-1)
+            $0.trailing.lessThanOrEqualTo(chevron.snp.leading).offset(-8)
+        }
+        subtitleLbl.snp.makeConstraints {
+            $0.leading.equalTo(titleLbl)
+            $0.top.equalTo(v.snp.centerY).offset(1)
+            $0.trailing.lessThanOrEqualTo(chevron.snp.leading).offset(-8)
+        }
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(viewAllTapped))
+        v.addGestureRecognizer(tap)
+        v.isUserInteractionEnabled = true
         return v
     }()
 
@@ -163,12 +209,16 @@ final class MemoryViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .viewsBackGourdColor
         buildFormCategories()
-        buildFilterButtons()
         setupUI()
         setupConstraints()
         topBar.onBackTap = { [weak self] in self?.navigationController?.popViewController(animated: true) }
-        loadMemories()
+        memories = BabyMemoryStore.load()
+
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
     }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -176,11 +226,12 @@ final class MemoryViewController: UIViewController {
         topBar.setBackVisible(pushed)
         let name = BabyProfileStore.loadName() ?? "Baby"
         topBar.configure(name: name, birthday: BabyProfileStore.loadBirthday(), photo: BabyProfileStore.loadPhoto())
+        memories = BabyMemoryStore.load()
     }
 
     // MARK: - Build helpers
 
-    private static func makeFieldLabel(_ text: String) -> UILabel {
+    private func makeFieldLabel(_ text: String) -> UILabel {
         let l = UILabel()
         l.text = text
         l.font = .systemFont(ofSize: 13 * Constraint.yCoeff, weight: .medium)
@@ -217,39 +268,10 @@ final class MemoryViewController: UIViewController {
         refreshFormCategoryButtons()
     }
 
-    private func buildFilterButtons() {
-        let allBtn = makePillButton(title: "All")
-        allBtn.tag = -1
-        allBtn.addTarget(self, action: #selector(filterTapped(_:)), for: .touchUpInside)
-        filterButtons.append(allBtn)
-        filterStack.addArrangedSubview(allBtn)
-
-        for (i, cat) in BabyMemory.Category.allCases.enumerated() {
-            let b = makePillButton(title: cat.title)
-            b.tag = i
-            b.addTarget(self, action: #selector(filterTapped(_:)), for: .touchUpInside)
-            filterButtons.append(b)
-            filterStack.addArrangedSubview(b)
-        }
-        refreshFilterButtons()
-    }
-
     private func refreshFormCategoryButtons() {
         let accent = UIColor(hexString: "#8b6dc4")
         for (i, b) in formCategoryButtons.enumerated() {
             let selected = BabyMemory.Category.allCases[i] == formCategory
-            b.backgroundColor = selected ? accent : .clear
-            b.setTitleColor(selected ? .white : accent, for: .normal)
-            b.layer.borderColor = accent.cgColor
-        }
-    }
-
-    private func refreshFilterButtons() {
-        let accent = UIColor(hexString: "#8b6dc4")
-        for b in filterButtons {
-            let selected: Bool
-            if b.tag == -1 { selected = selectedFilter == nil }
-            else { selected = selectedFilter == BabyMemory.Category.allCases[b.tag] }
             b.backgroundColor = selected ? accent : .clear
             b.setTitleColor(selected ? .white : accent, for: .normal)
             b.layer.borderColor = accent.cgColor
@@ -263,8 +285,10 @@ final class MemoryViewController: UIViewController {
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
 
+        contentView.addSubview(historyTitleLabel)
         contentView.addSubview(formCard)
-        formCard.addSubview(addMemoryLabel)
+
+        formCard.addSubview(cardHeaderRow)
         formCard.addSubview(titleFieldLabel)
         formCard.addSubview(titleField)
         formCard.addSubview(dateFieldLabel)
@@ -276,11 +300,7 @@ final class MemoryViewController: UIViewController {
         formCard.addSubview(formCatContainer)
         formCard.addSubview(saveButton)
 
-        contentView.addSubview(savedMemoriesLabel)
-        contentView.addSubview(filterScrollView)
-        filterScrollView.addSubview(filterStack)
-        contentView.addSubview(memoriesStack)
-        contentView.addSubview(emptyView)
+        contentView.addSubview(viewAllCard)
     }
 
     private func setupConstraints() {
@@ -299,22 +319,31 @@ final class MemoryViewController: UIViewController {
             $0.width.equalTo(scrollView)
         }
 
-        // Form card
-        formCard.snp.makeConstraints {
+        // Section title
+        historyTitleLabel.snp.makeConstraints {
             $0.top.equalToSuperview().inset(16 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hInset)
         }
-        addMemoryLabel.snp.makeConstraints {
-            $0.top.leading.equalToSuperview().inset(18 * Constraint.yCoeff)
+
+        // Form card
+        formCard.snp.makeConstraints {
+            $0.top.equalTo(historyTitleLabel.snp.bottom).offset(14 * Constraint.yCoeff)
+            $0.leading.trailing.equalToSuperview().inset(hInset)
+        }
+
+        cardHeaderRow.snp.makeConstraints {
+            $0.top.equalToSuperview().inset(18 * Constraint.yCoeff)
+            $0.leading.equalToSuperview().inset(hInset)
+            $0.height.equalTo(24 * Constraint.yCoeff)
         }
         titleFieldLabel.snp.makeConstraints {
-            $0.top.equalTo(addMemoryLabel.snp.bottom).offset(16 * Constraint.yCoeff)
+            $0.top.equalTo(cardHeaderRow.snp.bottom).offset(16 * Constraint.yCoeff)
             $0.leading.equalToSuperview().inset(hInset)
         }
         titleField.snp.makeConstraints {
             $0.top.equalTo(titleFieldLabel.snp.bottom).offset(6 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hInset)
-            $0.height.equalTo(42 * Constraint.yCoeff)
+            $0.height.equalTo(44 * Constraint.yCoeff)
         }
         dateFieldLabel.snp.makeConstraints {
             $0.top.equalTo(titleField.snp.bottom).offset(14 * Constraint.yCoeff)
@@ -323,10 +352,10 @@ final class MemoryViewController: UIViewController {
         datePickerContainer.snp.makeConstraints {
             $0.top.equalTo(dateFieldLabel.snp.bottom).offset(6 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hInset)
-            $0.height.equalTo(42 * Constraint.yCoeff)
+            $0.height.equalTo(44 * Constraint.yCoeff)
         }
         datePicker.snp.makeConstraints {
-            $0.leading.equalToSuperview().inset(8 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().inset(10 * Constraint.xCoeff)
             $0.centerY.equalToSuperview()
         }
         memoryFieldLabel.snp.makeConstraints {
@@ -336,7 +365,7 @@ final class MemoryViewController: UIViewController {
         memoryTextView.snp.makeConstraints {
             $0.top.equalTo(memoryFieldLabel.snp.bottom).offset(6 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hInset)
-            $0.height.equalTo(100 * Constraint.yCoeff)
+            $0.height.equalTo(110 * Constraint.yCoeff)
         }
         categoryFieldLabel.snp.makeConstraints {
             $0.top.equalTo(memoryTextView.snp.bottom).offset(14 * Constraint.yCoeff)
@@ -353,93 +382,13 @@ final class MemoryViewController: UIViewController {
             $0.bottom.equalToSuperview().inset(18 * Constraint.yCoeff)
         }
 
-        // Memories section
-        savedMemoriesLabel.snp.makeConstraints {
-            $0.top.equalTo(formCard.snp.bottom).offset(24 * Constraint.yCoeff)
-            $0.leading.equalToSuperview().inset(hInset)
-        }
-        filterScrollView.snp.makeConstraints {
-            $0.top.equalTo(savedMemoriesLabel.snp.bottom).offset(12 * Constraint.yCoeff)
+        // View All card
+        viewAllCard.snp.makeConstraints {
+            $0.top.equalTo(formCard.snp.bottom).offset(16 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview().inset(hInset)
-            $0.height.equalTo(36 * Constraint.yCoeff)
+            $0.height.equalTo(70 * Constraint.yCoeff)
+            $0.bottom.equalToSuperview().inset(32 * Constraint.yCoeff)
         }
-        filterStack.snp.makeConstraints {
-            $0.edges.equalToSuperview()
-            $0.height.equalTo(filterScrollView)
-        }
-        memoriesStack.snp.makeConstraints {
-            $0.top.equalTo(filterScrollView.snp.bottom).offset(16 * Constraint.yCoeff)
-            $0.leading.trailing.equalToSuperview().inset(hInset)
-        }
-        emptyView.snp.makeConstraints {
-            $0.top.equalTo(memoriesStack.snp.bottom).offset(40 * Constraint.yCoeff)
-            $0.centerX.equalToSuperview()
-            $0.bottom.equalToSuperview().inset(40 * Constraint.yCoeff)
-        }
-    }
-
-    // MARK: - Data
-
-    private func loadMemories() {
-        memories = BabyMemoryStore.load()
-        rebuildMemoriesList()
-    }
-
-    private func rebuildMemoriesList() {
-        memoriesStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        memoryCards = [:]
-        let filtered = selectedFilter == nil ? memories : memories.filter { $0.category == selectedFilter }
-        emptyView.isHidden = !filtered.isEmpty
-        for memory in filtered {
-            let card = MemoryCardView()
-            card.configure(memory: memory, isExpanded: expandedMemoryIDs.contains(memory.id))
-            card.onMenuTap = { [weak self] in self?.showMemoryOptions(memory) }
-            card.onTap = { [weak self] in
-                guard let self else { return }
-                if self.expandedMemoryIDs.contains(memory.id) {
-                    self.expandedMemoryIDs.remove(memory.id)
-                } else {
-                    self.expandedMemoryIDs.insert(memory.id)
-                }
-                self.memoryCards[memory.id]?.setExpanded(self.expandedMemoryIDs.contains(memory.id))
-                UIView.animate(withDuration: 0.3) { self.view.layoutIfNeeded() }
-            }
-            memoryCards[memory.id] = card
-            memoriesStack.addArrangedSubview(card)
-        }
-    }
-
-    private func showMemoryOptions(_ memory: BabyMemory) {
-        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        alert.addAction(UIAlertAction(title: "Edit Memory", style: .default) { [weak self] _ in
-            self?.editMemory(memory)
-        })
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-            guard let self else { return }
-            self.memories.removeAll { $0.id == memory.id }
-            BabyMemoryStore.save(self.memories)
-            self.rebuildMemoriesList()
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
-    }
-
-    private func editMemory(_ memory: BabyMemory) {
-        let alert = UIAlertController(title: "Edit Memory", message: nil, preferredStyle: .alert)
-        alert.addTextField { tf in tf.text = memory.title; tf.placeholder = "Title" }
-        alert.addTextField { tf in tf.text = memory.text; tf.placeholder = "Note" }
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
-            guard let self else { return }
-            let title = alert.textFields?[0].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? memory.title
-            let text = alert.textFields?[1].text ?? memory.text
-            guard !title.isEmpty, let idx = self.memories.firstIndex(where: { $0.id == memory.id }) else { return }
-            self.memories[idx].title = title
-            self.memories[idx].text = text
-            BabyMemoryStore.save(self.memories)
-            self.rebuildMemoriesList()
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
     }
 
     // MARK: - Actions
@@ -447,12 +396,6 @@ final class MemoryViewController: UIViewController {
     @objc private func formCatTapped(_ sender: UIButton) {
         formCategory = BabyMemory.Category.allCases[sender.tag]
         refreshFormCategoryButtons()
-    }
-
-    @objc private func filterTapped(_ sender: UIButton) {
-        selectedFilter = sender.tag == -1 ? nil : BabyMemory.Category.allCases[sender.tag]
-        refreshFilterButtons()
-        rebuildMemoriesList()
     }
 
     @objc private func saveTapped() {
@@ -471,7 +414,32 @@ final class MemoryViewController: UIViewController {
         memoryTextView.text = placeholderText
         memoryTextView.textColor = .placeholderText
         view.endEditing(true)
-        rebuildMemoriesList()
+
+        // Animate save confirmation
+        UIView.animate(withDuration: 0.15, animations: {
+            self.saveButton.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+        }) { _ in
+            UIView.animate(withDuration: 0.15) { self.saveButton.transform = .identity }
+        }
+    }
+
+    @objc private func viewAllTapped() {
+        let vc = SavedMemoriesViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    // MARK: - Keyboard
+
+    @objc private func keyboardWillShow(_ n: Notification) {
+        guard let frame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+        scrollView.contentInset.bottom = frame.height + 20
+        scrollView.verticalScrollIndicatorInsets.bottom = frame.height
+    }
+
+    @objc private func keyboardWillHide(_ n: Notification) {
+        scrollView.contentInset.bottom = 0
+        scrollView.verticalScrollIndicatorInsets.bottom = 0
     }
 }
 
@@ -480,21 +448,19 @@ final class MemoryViewController: UIViewController {
 extension MemoryViewController: UITextViewDelegate {
     func textViewDidBeginEditing(_ textView: UITextView) {
         if textView.textColor == .placeholderText {
-            textView.text = ""
-            textView.textColor = .label
+            textView.text = ""; textView.textColor = .label
         }
     }
     func textViewDidEndEditing(_ textView: UITextView) {
         if textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            textView.text = placeholderText
-            textView.textColor = .placeholderText
+            textView.text = placeholderText; textView.textColor = .placeholderText
         }
     }
 }
 
 // MARK: - HistoryTopBar
 
-private final class HistoryTopBar: UIView {
+final class HistoryTopBar: UIView {
 
     var onBackTap: (() -> Void)?
 
@@ -505,7 +471,6 @@ private final class HistoryTopBar: UIView {
         b.isHidden = true
         return b
     }()
-
     private let avatarView: UIView = {
         let v = UIView()
         v.layer.cornerRadius = 22 * Constraint.yCoeff; v.clipsToBounds = true
@@ -534,7 +499,6 @@ private final class HistoryTopBar: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .viewsBackGourdColor
-
         addSubview(backButton)
         addSubview(avatarView)
         avatarView.addSubview(avatarImage)
@@ -562,10 +526,8 @@ private final class HistoryTopBar: UIView {
             $0.leading.equalTo(nameLabel)
             $0.top.equalTo(avatarView.snp.centerY).offset(2)
         }
-
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
     }
-
     required init?(coder: NSCoder) { fatalError() }
 
     func configure(name: String, birthday: Date?, photo: UIImage?) {
@@ -576,20 +538,13 @@ private final class HistoryTopBar: UIView {
             let comps = cal.dateComponents([.year, .month, .day],
                                            from: cal.startOfDay(for: bd),
                                            to: cal.startOfDay(for: Date()))
-            let y = max(0, comps.year ?? 0)
-            let m = max(0, comps.month ?? 0)
-            let d = max(0, comps.day ?? 0)
+            let y = max(0, comps.year ?? 0); let m = max(0, comps.month ?? 0); let d = max(0, comps.day ?? 0)
             if y == 0 && m == 0 { return "\(d) days old" }
             if y == 0 { return "\(m) months \(d) days old" }
             return "\(y) years \(m) months \(d) days old"
         }()
-        if let p = photo {
-            avatarImage.image = p; avatarInitial.isHidden = true
-        } else {
-            avatarImage.image = nil
-            avatarInitial.text = String(name.prefix(1)).uppercased()
-            avatarInitial.isHidden = false
-        }
+        if let p = photo { avatarImage.image = p; avatarInitial.isHidden = true }
+        else { avatarImage.image = nil; avatarInitial.text = String(name.prefix(1)).uppercased(); avatarInitial.isHidden = false }
     }
 
     func setBackVisible(_ visible: Bool) {
@@ -601,132 +556,4 @@ private final class HistoryTopBar: UIView {
     }
 
     @objc private func backTapped() { onBackTap?() }
-}
-
-// MARK: - MemoryCardView
-
-final class MemoryCardView: UIView {
-
-    var onMenuTap: (() -> Void)?
-    var onTap: (() -> Void)?
-
-    private var isExpanded = false
-
-    private let iconCircle: UIView = {
-        let v = UIView()
-        v.layer.cornerRadius = 22 * Constraint.yCoeff; v.clipsToBounds = true
-        return v
-    }()
-    private let iconView: UIImageView = {
-        let iv = UIImageView(); iv.contentMode = .scaleAspectFit; iv.tintColor = .white; return iv
-    }()
-    private let titleLabel: UILabel = {
-        let l = UILabel()
-        l.font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: .semibold)
-        l.textColor = UIColor(hexString: "#1a1a1a"); return l
-    }()
-    private let categoryTag: UILabel = {
-        let l = UILabel()
-        l.font = .systemFont(ofSize: 11 * Constraint.yCoeff, weight: .semibold)
-        l.textColor = .white
-        l.layer.cornerRadius = 8 * Constraint.yCoeff; l.clipsToBounds = true
-        l.textAlignment = .center
-        return l
-    }()
-    private let dateLabel: UILabel = {
-        let l = UILabel()
-        l.font = .systemFont(ofSize: 12 * Constraint.yCoeff, weight: .regular)
-        l.textColor = UIColor(hexString: "#999999"); return l
-    }()
-    private lazy var menuButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "ellipsis"), for: .normal)
-        b.tintColor = UIColor(hexString: "#aaaaaa")
-        b.addTarget(self, action: #selector(menuTapped), for: .touchUpInside)
-        return b
-    }()
-    private let bodyLabel: UILabel = {
-        let l = UILabel()
-        l.font = .systemFont(ofSize: 13 * Constraint.yCoeff)
-        l.textColor = UIColor(hexString: "#555555")
-        l.numberOfLines = 2
-        return l
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .white
-        layer.cornerRadius = 16 * Constraint.yCoeff; clipsToBounds = true
-
-        // Transparent tap area behind all buttons so card tap doesn't block menu button
-        let tapArea = UIView()
-        tapArea.backgroundColor = .clear
-        insertSubview(tapArea, at: 0)
-        tapArea.snp.makeConstraints { $0.edges.equalToSuperview() }
-        tapArea.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
-
-        addSubview(iconCircle); iconCircle.addSubview(iconView)
-        addSubview(menuButton)
-        addSubview(titleLabel); addSubview(categoryTag); addSubview(dateLabel)
-        addSubview(bodyLabel)
-
-        iconCircle.snp.makeConstraints {
-            $0.leading.equalToSuperview().inset(14 * Constraint.xCoeff)
-            $0.top.equalToSuperview().inset(14 * Constraint.yCoeff)
-            $0.width.height.equalTo(44 * Constraint.yCoeff)
-        }
-        iconView.snp.makeConstraints { $0.center.equalToSuperview(); $0.width.height.equalTo(20 * Constraint.yCoeff) }
-        menuButton.snp.makeConstraints {
-            $0.trailing.equalToSuperview().inset(10 * Constraint.xCoeff)
-            $0.top.equalToSuperview().inset(10 * Constraint.yCoeff)
-            $0.width.height.equalTo(30 * Constraint.yCoeff)
-        }
-        titleLabel.snp.makeConstraints {
-            $0.top.equalTo(iconCircle)
-            $0.leading.equalTo(iconCircle.snp.trailing).offset(10 * Constraint.xCoeff)
-            $0.trailing.lessThanOrEqualTo(menuButton.snp.leading).offset(-8 * Constraint.xCoeff)
-        }
-        categoryTag.snp.makeConstraints {
-            $0.leading.equalTo(titleLabel)
-            $0.top.equalTo(titleLabel.snp.bottom).offset(4 * Constraint.yCoeff)
-            $0.height.equalTo(20 * Constraint.yCoeff)
-        }
-        dateLabel.snp.makeConstraints {
-            $0.leading.equalTo(categoryTag.snp.trailing).offset(8 * Constraint.xCoeff)
-            $0.centerY.equalTo(categoryTag)
-        }
-        bodyLabel.snp.makeConstraints {
-            $0.top.equalTo(iconCircle.snp.bottom).offset(10 * Constraint.yCoeff)
-            $0.leading.trailing.equalToSuperview().inset(14 * Constraint.xCoeff)
-            $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
-        }
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    func configure(memory: BabyMemory, isExpanded: Bool = false) {
-        titleLabel.text = memory.title
-        let df = DateFormatter(); df.dateFormat = "MMM d, yyyy"
-        dateLabel.text = df.string(from: memory.date)
-        bodyLabel.text = memory.text.isEmpty ? "" : memory.text
-
-        let cat = memory.category
-        iconCircle.backgroundColor = cat.color.withAlphaComponent(0.85)
-        iconView.image = UIImage(systemName: cat.iconName)
-        categoryTag.backgroundColor = cat.color
-        categoryTag.text = "  \(cat.title)  "
-
-        self.isExpanded = isExpanded
-        bodyLabel.numberOfLines = isExpanded ? 0 : 2
-    }
-
-    func setExpanded(_ expanded: Bool) {
-        isExpanded = expanded
-        bodyLabel.numberOfLines = expanded ? 0 : 2
-        setNeedsLayout()
-        layoutIfNeeded()
-    }
-
-    @objc private func menuTapped() { onMenuTap?() }
-    @objc private func cardTapped() { onTap?() }
 }
