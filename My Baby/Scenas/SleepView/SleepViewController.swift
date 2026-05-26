@@ -1162,6 +1162,13 @@ final class SleepCalendarCell: UICollectionViewCell {
             $0.centerY.equalToSuperview()
             $0.width.height.equalTo(24 * Constraint.yCoeff)
         }
+
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(swipeWeek(_:)))
+        swipeLeft.direction = .left
+        collapsedView.addGestureRecognizer(swipeLeft)
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(swipeWeek(_:)))
+        swipeRight.direction = .right
+        collapsedView.addGestureRecognizer(swipeRight)
     }
 
     private func setupExpandedView() {
@@ -1237,6 +1244,13 @@ final class SleepCalendarCell: UICollectionViewCell {
             $0.leading.trailing.equalToSuperview().inset(8 * Constraint.xCoeff)
             $0.bottom.equalToSuperview().inset(8 * Constraint.yCoeff)
         }
+
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(swipeMonth(_:)))
+        swipeLeft.direction = .left
+        expandedView.addGestureRecognizer(swipeLeft)
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(swipeMonth(_:)))
+        swipeRight.direction = .right
+        expandedView.addGestureRecognizer(swipeRight)
     }
 
     private func buildWeekDates() {
@@ -1344,13 +1358,44 @@ final class SleepCalendarCell: UICollectionViewCell {
     }
 
     @objc private func prevMonth() {
+        slideCalendar(expandedView, toRight: true)
         guard let prev = Calendar.current.date(byAdding: .month, value: -1, to: displayedMonth) else { return }
         displayedMonth = prev; reloadMonthGrid()
     }
 
     @objc private func nextMonth() {
+        slideCalendar(expandedView, toRight: false)
         guard let next = Calendar.current.date(byAdding: .month, value: 1, to: displayedMonth) else { return }
         displayedMonth = next; reloadMonthGrid()
+    }
+
+    @objc private func swipeWeek(_ g: UISwipeGestureRecognizer) {
+        slideCalendar(collapsedView, toRight: g.direction == .right)
+        let offset = g.direction == .left ? 7 : -7
+        let cal = Calendar.current
+        guard let newMonday = cal.date(byAdding: .day, value: offset, to: weekDates.first ?? selectedDate) else { return }
+        let weekday = cal.component(.weekday, from: selectedDate)
+        let dayOffset = (weekday + 5) % 7
+        selectedDate = cal.date(byAdding: .day, value: dayOffset, to: newMonday) ?? newMonday
+        if !cal.isDate(selectedDate, equalTo: displayedMonth, toGranularity: .month) {
+            displayedMonth = cal.date(from: cal.dateComponents([.year, .month], from: selectedDate)) ?? displayedMonth
+        }
+        buildWeekDates()
+        reloadWeekStrip()
+        onDaySelected?(selectedDate)
+    }
+
+    @objc private func swipeMonth(_ g: UISwipeGestureRecognizer) {
+        if g.direction == .left { nextMonth() } else { prevMonth() }
+    }
+
+    private func slideCalendar(_ view: UIView, toRight: Bool) {
+        let t = CATransition()
+        t.type = .push
+        t.subtype = toRight ? .fromLeft : .fromRight
+        t.duration = 0.28
+        t.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        view.layer.add(t, forKey: "calendarSlide")
     }
 
     override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {

@@ -51,6 +51,7 @@ final class FeedingViewController: UIViewController {
 
 
 
+    // feedingView kept for non-breast types (bottle/formula/solid)
     private lazy var feedingView: FeedingView = {
         let v = FeedingView()
         v.isHidden = true
@@ -309,12 +310,19 @@ final class FeedingViewController: UIViewController {
     // MARK: - Actions
 
     private func quickLog(type: FeedingTypeView.FeedingType) {
-        feedingView.configure(initialType: type, showTypePicker: false)
-        feedingView.isHidden = false
-        feedingView.transform = CGAffineTransform(translationX: 0, y: view.bounds.height)
-        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0.6, options: [.curveEaseInOut]) {
-            self.feedingView.transform = .identity
+        let vc = FeedingSessionViewController()
+        vc.feedingType = type
+        vc.modalPresentationStyle = .fullScreen
+        vc.onSave = { [weak self] value, notes in
+            guard let self else { return }
+            let formatter = DateFormatter()
+            formatter.dateFormat = "h:mm a"
+            let time = formatter.string(from: Date())
+            formatter.dateFormat = "MMM d"
+            let date = formatter.string(from: Date())
+            self.saveEntry(type: type, volume: value, notes: notes, time: time, date: date)
         }
+        present(vc, animated: true)
     }
 
     private func saveEntry(type: FeedingTypeView.FeedingType, volume: String?, notes: String?, time: String, date: String) {
@@ -639,6 +647,13 @@ final class FeedingWeekCalendarCell: UICollectionViewCell {
             $0.centerY.equalToSuperview()
             $0.width.height.equalTo(24 * Constraint.yCoeff)
         }
+
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(swipeWeek(_:)))
+        swipeLeft.direction = .left
+        collapsedView.addGestureRecognizer(swipeLeft)
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(swipeWeek(_:)))
+        swipeRight.direction = .right
+        collapsedView.addGestureRecognizer(swipeRight)
     }
 
     private func setupExpandedView() {
@@ -714,6 +729,13 @@ final class FeedingWeekCalendarCell: UICollectionViewCell {
             $0.leading.trailing.equalToSuperview().inset(8 * Constraint.xCoeff)
             $0.bottom.equalToSuperview().inset(8 * Constraint.yCoeff)
         }
+
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(swipeMonth(_:)))
+        swipeLeft.direction = .left
+        expandedView.addGestureRecognizer(swipeLeft)
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(swipeMonth(_:)))
+        swipeRight.direction = .right
+        expandedView.addGestureRecognizer(swipeRight)
     }
 
     // MARK: - Data
@@ -833,15 +855,46 @@ final class FeedingWeekCalendarCell: UICollectionViewCell {
     }
 
     @objc private func prevMonth() {
+        slideCalendar(expandedView, toRight: true)
         guard let prev = Calendar.current.date(byAdding: .month, value: -1, to: displayedMonth) else { return }
         displayedMonth = prev
         reloadMonthGrid()
     }
 
     @objc private func nextMonth() {
+        slideCalendar(expandedView, toRight: false)
         guard let next = Calendar.current.date(byAdding: .month, value: 1, to: displayedMonth) else { return }
         displayedMonth = next
         reloadMonthGrid()
+    }
+
+    @objc private func swipeWeek(_ g: UISwipeGestureRecognizer) {
+        slideCalendar(collapsedView, toRight: g.direction == .right)
+        let offset = g.direction == .left ? 7 : -7
+        let cal = Calendar.current
+        guard let newMonday = cal.date(byAdding: .day, value: offset, to: weekDates.first ?? selectedDate) else { return }
+        let weekday = cal.component(.weekday, from: selectedDate)
+        let dayOffset = (weekday + 5) % 7
+        selectedDate = cal.date(byAdding: .day, value: dayOffset, to: newMonday) ?? newMonday
+        if !cal.isDate(selectedDate, equalTo: displayedMonth, toGranularity: .month) {
+            displayedMonth = cal.date(from: cal.dateComponents([.year, .month], from: selectedDate)) ?? displayedMonth
+        }
+        buildWeekDates()
+        reloadWeekStrip()
+        onDaySelected?(selectedDate)
+    }
+
+    @objc private func swipeMonth(_ g: UISwipeGestureRecognizer) {
+        if g.direction == .left { nextMonth() } else { prevMonth() }
+    }
+
+    private func slideCalendar(_ view: UIView, toRight: Bool) {
+        let t = CATransition()
+        t.type = .push
+        t.subtype = toRight ? .fromLeft : .fromRight
+        t.duration = 0.28
+        t.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        view.layer.add(t, forKey: "calendarSlide")
     }
 
     // MARK: - Self-sizing
@@ -987,7 +1040,7 @@ final class FeedingLastFeedCell: UICollectionViewCell {
         let iconName: String
         switch entry.typeRaw {
         case "breast":
-            accentColor = UIColor(hexString: "#e07a5f")
+            accentColor = UIColor(hexString: "#E8613A")
             iconName = "heart.fill"
             typeBadge.backgroundColor = accentColor.withAlphaComponent(0.12)
             typeBadgeLabel.textColor = accentColor
@@ -1039,34 +1092,34 @@ final class FeedingQuickActionsCell: UICollectionViewCell {
 
     private lazy var breastBtn  = makeBtn(
         title: "Start Breast", icon: "heart.fill",
-        cardColor:   UIColor(hexString: "#f0b5a0"),
-        circleBg:    UIColor(hexString: "#c8836a").withAlphaComponent(0.45),
+        cardColor:   UIColor(hexString: "#E8613A"),
+        circleBg:    UIColor(white: 1, alpha: 0.22),
         iconTint:    .white,
-        labelColor:  UIColor(hexString: "#6b3020"),
+        labelColor:  .white,
         tag: 0
     )
     private lazy var bottleBtn  = makeBtn(
         title: "Bottle", icon: "waterbottle",
         cardColor:   UIColor(hexString: "#9b7fd4"),
-        circleBg:    UIColor(white: 0, alpha: 0.18),
+        circleBg:    UIColor(white: 1, alpha: 0.22),
         iconTint:    .white,
         labelColor:  .white,
         tag: 1
     )
     private lazy var solidsBtn  = makeBtn(
         title: "Solids", icon: "fork.knife",
-        cardColor:   UIColor(hexString: "#7d9e82"),
-        circleBg:    UIColor(white: 0, alpha: 0.18),
+        cardColor:   UIColor(hexString: "#5aac7c"),
+        circleBg:    UIColor(white: 1, alpha: 0.22),
         iconTint:    .white,
         labelColor:  .white,
         tag: 2
     )
     private lazy var formulaBtn = makeBtn(
         title: "Formula", icon: "drop.fill",
-        cardColor:   UIColor(hexString: "#c8dff0"),
-        circleBg:    UIColor(hexString: "#88b8d8").withAlphaComponent(0.55),
-        iconTint:    UIColor(hexString: "#3a78b8"),
-        labelColor:  UIColor(hexString: "#3a78b8"),
+        cardColor:   UIColor(hexString: "#4a9fc4"),
+        circleBg:    UIColor(white: 1, alpha: 0.22),
+        iconTint:    .white,
+        labelColor:  .white,
         tag: 3
     )
 

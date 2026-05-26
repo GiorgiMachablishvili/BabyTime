@@ -1,376 +1,594 @@
 import UIKit
 import SnapKit
 
+// MARK: - FeedingView (slide-up sheet)
+
 class FeedingView: UIView {
 
+    // MARK: - Callbacks (same signature as before so FeedingViewController needs no changes)
     var onTapCloseButton: (() -> Void)?
-    var onTapSave: ((FeedingTypeView.FeedingType, String?, String?, String, String) -> Void)? // (type, volumeText, notesText, timeText, dateText)
-    private var feedingViewHeightConstraint: SnapKit.Constraint? = nil
-    private var notesTopToTimeConstraint: SnapKit.Constraint? = nil
-    private var notesTopToVolumeConstraint: SnapKit.Constraint? = nil
-    
+    var onTapSave: ((FeedingTypeView.FeedingType, String?, String?, String, String) -> Void)?
+
+    // MARK: - Internal state
     private var currentFeedingType: FeedingTypeView.FeedingType = .breast
+    private var selectedSide: BreastSide = .left
 
-    private lazy var blurEffectView: UIView = {
-        let view = UIView(frame: .zero)
-        view.backgroundColor = .gray.withAlphaComponent(0.9)
-        return view
-    }()
+    // Timer state
+    private var elapsedSeconds: Int = 0
+    private var timerIsRunning = false
+    private var countTimer: Timer?
 
-    private lazy var feedingView: UIView = {
-        let view = UIView(frame: .zero)
-        view.backgroundColor = .systemBackground
-        view.layer.cornerRadius = 16
-        return view
-    }()
-
-    private lazy var scrollView: UIScrollView = {
-        let view = UIScrollView()
-        view.keyboardDismissMode = .onDrag
-        view.alwaysBounceVertical = true
-        view.showsVerticalScrollIndicator = false
-        return view
-    }()
-
-    private lazy var contentView: UIView = {
-        let view = UIView()
-        return view
-    }()
-
-    private lazy var addFeedingTitleLabel: UILabel = {
-        let view = UILabel(frame: .zero)
-        view.text = "Add Feeding"
-        view.font = UIFont.systemFont(ofSize: 20, weight: .semibold)
-        view.textColor = .label
-        return view
-    }()
-
-    private lazy var closeFeedingViewButton: UIButton = {
-        let view = UIButton(frame: .zero)
-        let image = UIImage(systemName: "xmark.circle")!
-        view.setImage(image, for: .normal)
-        view.tintColor = .label
-        view.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
-        return view
-    }()
-
-    private lazy var feedingTypeView: FeedingTypeView = {
-        let view = FeedingTypeView()
-        return view
-    }()
-
-    private lazy var selectedTypeBadge: UIView = {
+    // MARK: - Sub-views: sheet container
+    private lazy var handleBar: UIView = {
         let v = UIView()
-        v.layer.cornerRadius = 22 * Constraint.yCoeff
-        v.clipsToBounds = true
-        v.isHidden = true
+        v.backgroundColor = .clear
         return v
     }()
 
-    private lazy var selectedTypeBadgeLabel: UILabel = {
+    private lazy var dimView: UIView = {
+        let v = UIView()
+        v.backgroundColor = .clear
+        return v
+    }()
+
+    private lazy var sheetView: UIView = {
+        let v = UIView()
+        v.backgroundColor = .cardBackground
+        v.layer.cornerRadius = 0
+        v.layer.masksToBounds = false
+        return v
+    }()
+
+    private lazy var scrollView: UIScrollView = {
+        let s = UIScrollView()
+        s.keyboardDismissMode = .onDrag
+        s.showsVerticalScrollIndicator = false
+        s.alwaysBounceVertical = true
+        return s
+    }()
+
+    private lazy var contentView = UIView()
+
+    // MARK: - Header row
+    private lazy var titleLabel: UILabel = {
         let l = UILabel()
-        l.font = UIFont.systemFont(ofSize: 17, weight: .bold)
-        l.textColor = .white
+        l.font = .systemFont(ofSize: 20, weight: .bold)
+        l.textColor = .label
+        l.text = "Breast Feeding"
+        return l
+    }()
+
+    private lazy var closeButton: UIButton = {
+        let b = UIButton(type: .system)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        b.setImage(UIImage(systemName: "xmark", withConfiguration: cfg), for: .normal)
+        b.tintColor = .secondaryLabel
+        b.backgroundColor = UIColor.systemGray5
+        b.layer.cornerRadius = 15
+        b.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
+        return b
+    }()
+
+    // MARK: - Breast side selector
+    private lazy var sideContainer: UIView = {
+        let v = UIView()
+        v.backgroundColor = .fieldBackground
+        v.layer.cornerRadius = 14
+        return v
+    }()
+
+    private lazy var leftButton: UIButton = makeSideButton(title: "👶 Left", side: .left)
+    private lazy var rightButton: UIButton = makeSideButton(title: "Right 👶", side: .right)
+
+    private func makeSideButton(title: String, side: BreastSide) -> UIButton {
+        let b = UIButton(type: .system)
+        b.setTitle(title, for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        b.layer.cornerRadius = 10
+        b.tag = side == .left ? 0 : 1
+        b.addTarget(self, action: #selector(sideTapped(_:)), for: .touchUpInside)
+        return b
+    }
+
+    // MARK: - Timer display
+    private lazy var timerCircle: UIView = {
+        let v = UIView()
+        v.backgroundColor = .viewsBackGourdColor
+        v.layer.cornerRadius = 80 * Constraint.xCoeff
+        v.layer.borderWidth = 4
+        v.layer.borderColor = UIColor.brandPrimary.cgColor
+        return v
+    }()
+
+    private lazy var timerLabel: UILabel = {
+        let l = UILabel()
+        l.text = "00:00"
+        l.font = UIFont.monospacedDigitSystemFont(ofSize: 44 * Constraint.xCoeff, weight: .thin)
+        l.textColor = .label
         l.textAlignment = .center
         return l
     }()
 
-    private lazy var timeButtonView: TimeButtonView = {
-        let view = TimeButtonView()
-        return view
+    private lazy var sideIndicatorLabel: UILabel = {
+        let l = UILabel()
+        l.text = "Left breast"
+        l.font = .systemFont(ofSize: 13, weight: .medium)
+        l.textColor = .brandPrimary
+        l.textAlignment = .center
+        return l
     }()
 
-    private lazy var volumeButtonView: VolumeButtonView = {
+    // MARK: - Timer controls
+    private lazy var startPauseButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.backgroundColor = .brandPrimary
+        b.layer.cornerRadius = 28 * Constraint.xCoeff
+        b.tintColor = .white
+        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        b.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
+        b.addTarget(self, action: #selector(startPauseTapped), for: .touchUpInside)
+        return b
+    }()
+
+    private lazy var resetButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.backgroundColor = UIColor.systemGray5
+        b.layer.cornerRadius = 22 * Constraint.xCoeff
+        b.tintColor = .secondaryLabel
+        let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        b.setImage(UIImage(systemName: "arrow.counterclockwise", withConfiguration: cfg), for: .normal)
+        b.addTarget(self, action: #selector(resetTapped), for: .touchUpInside)
+        return b
+    }()
+
+    // Duration label shown below controls
+    private lazy var durationHintLabel: UILabel = {
+        let l = UILabel()
+        l.text = "Tap ▶ to start the timer"
+        l.font = .systemFont(ofSize: 12, weight: .regular)
+        l.textColor = .tertiaryLabel
+        l.textAlignment = .center
+        return l
+    }()
+
+    // MARK: - Volume section (bottle / formula / solid)
+    private lazy var volumeView: VolumeButtonView = {
         let v = VolumeButtonView()
         v.isHidden = true
         return v
     }()
 
-    private lazy var notesOptionalView: NotesOptionalView = {
-        let view = NotesOptionalView()
-        return view
+    // MARK: - Notes
+    private lazy var notesCardView: UIView = {
+        let v = UIView()
+        v.backgroundColor = .fieldBackground
+        v.layer.cornerRadius = 14
+        return v
     }()
 
-    private lazy var saveButton: UIButton = {
-        let view = UIButton(frame: .zero)
-        view.makeRoundCorners(12)
-        view.setTitle("Save", for: .normal)
-        view.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-        view.setTitleColor(.labelWhiteColor, for: .normal)
-        view.backgroundColor = .pressButtonColor
-        view.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
-        return view
+    private lazy var notesLabel: UILabel = {
+        let l = UILabel()
+        l.text = "Notes"
+        l.font = .systemFont(ofSize: 13, weight: .semibold)
+        l.textColor = .secondaryLabel
+        return l
     }()
+
+    private lazy var notesTextView: UITextView = {
+        let tv = UITextView()
+        tv.backgroundColor = .clear
+        tv.font = .systemFont(ofSize: 15)
+        tv.textColor = .label
+        tv.isScrollEnabled = false
+        tv.textContainerInset = .zero
+        tv.textContainer.lineFragmentPadding = 0
+        tv.delegate = self
+        return tv
+    }()
+
+    private lazy var notesPlaceholder: UILabel = {
+        let l = UILabel()
+        l.text = "Add a note…"
+        l.font = .systemFont(ofSize: 15)
+        l.textColor = .tertiaryLabel
+        return l
+    }()
+
+    // MARK: - Save button
+    private lazy var saveButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.backgroundColor = UIColor(hexString: "#7B5FE6")
+        b.layer.cornerRadius = 16
+        b.setTitle("Save Session", for: .normal)
+        b.setTitleColor(.white, for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        b.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
+        return b
+    }()
+
+    // MARK: - Init
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        self.backgroundColor = .clear
+        backgroundColor = .clear
         setupUI()
-        setupConstraint()
+        setupConstraints()
         setupKeyboardObservers()
-        feedingTypeView.onTypeChanged = { [weak self] type in
-            guard let self = self else { return }
-            self.currentFeedingType = type
-            switch type {
-            case .breast:
-                self.timeButtonView.isHidden = false
-                self.volumeButtonView.isHidden = true
-                self.feedingViewHeightConstraint?.update(offset: 600 * Constraint.xCoeff)
-                self.notesTopToVolumeConstraint?.deactivate()
-                self.notesTopToTimeConstraint?.activate()
-            case .bottle, .formula, .solid:
-                self.timeButtonView.isHidden = true
-                self.volumeButtonView.isHidden = false
-                self.feedingViewHeightConstraint?.update(offset: 600 * Constraint.xCoeff)
-                self.notesTopToTimeConstraint?.deactivate()
-                self.notesTopToVolumeConstraint?.activate()
-            }
-            UIView.animate(withDuration: 0.25) {
-                self.layoutIfNeeded()
-            }
-        }
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        updateSideSelection(animated: false)
     }
 
+    required init?(coder: NSCoder) { fatalError() }
+
     deinit {
+        stopTimer()
         NotificationCenter.default.removeObserver(self)
     }
 
+    // MARK: - Setup
+
     private func setupUI() {
-        addSubview(blurEffectView)
-        addSubview(feedingView)
-        feedingView.addSubview(addFeedingTitleLabel)
-        feedingView.addSubview(closeFeedingViewButton)
-        feedingView.addSubview(scrollView)
+        addSubview(dimView)
+        addSubview(sheetView)
+        sheetView.addSubview(handleBar)
+        sheetView.addSubview(scrollView)
         scrollView.addSubview(contentView)
-        contentView.addSubview(feedingTypeView)
-        contentView.addSubview(selectedTypeBadge)
-        selectedTypeBadge.addSubview(selectedTypeBadgeLabel)
-        contentView.addSubview(timeButtonView)
-        contentView.addSubview(volumeButtonView)
-        contentView.addSubview(notesOptionalView)
+
+        // Header
+        contentView.addSubview(titleLabel)
+        contentView.addSubview(closeButton)
+
+        // Breast UI
+        contentView.addSubview(sideContainer)
+        sideContainer.addSubview(leftButton)
+        sideContainer.addSubview(rightButton)
+
+        contentView.addSubview(timerCircle)
+        timerCircle.addSubview(timerLabel)
+        timerCircle.addSubview(sideIndicatorLabel)
+
+        contentView.addSubview(startPauseButton)
+        contentView.addSubview(resetButton)
+        contentView.addSubview(durationHintLabel)
+
+        // Volume UI (other feeding types)
+        contentView.addSubview(volumeView)
+
+        // Notes
+        contentView.addSubview(notesCardView)
+        notesCardView.addSubview(notesLabel)
+        notesCardView.addSubview(notesTextView)
+        notesTextView.addSubview(notesPlaceholder)
+
         contentView.addSubview(saveButton)
     }
 
-    private func setupConstraint() {
-        blurEffectView.snp.remakeConstraints { make in
-            make.edges.equalToSuperview()
+    private func setupConstraints() {
+        dimView.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        sheetView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
         }
 
-        feedingView.snp.remakeConstraints { make in
-            make.leading.trailing.bottom.equalToSuperview()
-            self.feedingViewHeightConstraint = make.height.equalTo(600 * Constraint.xCoeff).constraint
+        handleBar.snp.makeConstraints {
+            $0.top.equalTo(sheetView.safeAreaLayoutGuide).offset(10 * Constraint.xCoeff)
+            $0.centerX.equalToSuperview()
+            $0.width.equalTo(40)
+            $0.height.equalTo(5)
         }
 
-        addFeedingTitleLabel.snp.remakeConstraints { make in
-            make.top.leading.equalTo(feedingView).inset(10 * Constraint.xCoeff)
+        scrollView.snp.makeConstraints {
+            $0.top.equalTo(handleBar.snp.bottom).offset(4 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview()
+            $0.bottom.equalTo(sheetView.safeAreaLayoutGuide)
         }
 
-        closeFeedingViewButton.snp.remakeConstraints { make in
-            make.top.equalTo(feedingView.snp.top).offset(10 * Constraint.xCoeff)
-            make.trailing.equalTo(feedingView.snp.trailing).offset(-10 * Constraint.yCoeff)
-            make.height.width.equalTo(44 * Constraint.xCoeff)
+        contentView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+            $0.width.equalTo(scrollView)
         }
 
-        scrollView.snp.remakeConstraints { make in
-            make.top.equalTo(addFeedingTitleLabel.snp.bottom).offset(8 * Constraint.xCoeff)
-            make.leading.trailing.bottom.equalTo(feedingView)
+        // Header
+        titleLabel.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(16 * Constraint.xCoeff)
+            $0.leading.equalToSuperview().offset(24 * Constraint.xCoeff)
         }
 
-        contentView.snp.remakeConstraints { make in
-            make.edges.equalToSuperview()
-            make.width.equalTo(scrollView)
+        closeButton.snp.makeConstraints {
+            $0.centerY.equalTo(titleLabel)
+            $0.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
+            $0.width.height.equalTo(30)
         }
 
-        feedingTypeView.snp.remakeConstraints { make in
-            make.top.equalTo(contentView).offset(12 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview()
-            make.height.equalTo(100 * Constraint.xCoeff)
+        // Side selector
+        sideContainer.snp.makeConstraints {
+            $0.top.equalTo(titleLabel.snp.bottom).offset(20 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
+            $0.height.equalTo(48 * Constraint.xCoeff)
         }
 
-        selectedTypeBadge.snp.remakeConstraints { make in
-            make.top.equalTo(contentView).offset(28 * Constraint.xCoeff)
-            make.centerX.equalToSuperview()
-            make.height.equalTo(44 * Constraint.yCoeff)
-        }
-        selectedTypeBadgeLabel.snp.remakeConstraints { make in
-            make.top.bottom.equalToSuperview()
-            make.leading.trailing.equalToSuperview().inset(24 * Constraint.xCoeff)
+        leftButton.snp.makeConstraints {
+            $0.top.bottom.equalToSuperview().inset(4)
+            $0.leading.equalToSuperview().inset(4)
+            $0.trailing.equalTo(sideContainer.snp.centerX).offset(-2)
         }
 
-        timeButtonView.snp.remakeConstraints { make in
-            make.top.equalTo(feedingTypeView.snp.bottom).offset(20 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(140 * Constraint.xCoeff)
+        rightButton.snp.makeConstraints {
+            $0.top.bottom.equalToSuperview().inset(4)
+            $0.trailing.equalToSuperview().inset(4)
+            $0.leading.equalTo(sideContainer.snp.centerX).offset(2)
         }
 
-        volumeButtonView.snp.remakeConstraints { make in
-            make.top.equalTo(feedingTypeView.snp.bottom).offset(20 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(140 * Constraint.xCoeff)
+        // Timer circle
+        let circleSize: CGFloat = 160 * Constraint.xCoeff
+        timerCircle.snp.makeConstraints {
+            $0.top.equalTo(sideContainer.snp.bottom).offset(28 * Constraint.xCoeff)
+            $0.centerX.equalToSuperview()
+            $0.width.height.equalTo(circleSize)
+        }
+        timerCircle.layer.cornerRadius = circleSize / 2
+
+        timerLabel.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.centerY.equalToSuperview().offset(-8 * Constraint.xCoeff)
         }
 
-        notesOptionalView.snp.remakeConstraints { make in
-            self.notesTopToTimeConstraint = make.top.equalTo(timeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
-            self.notesTopToVolumeConstraint = make.top.equalTo(volumeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(140 * Constraint.xCoeff)
+        sideIndicatorLabel.snp.makeConstraints {
+            $0.top.equalTo(timerLabel.snp.bottom).offset(2 * Constraint.xCoeff)
+            $0.centerX.equalToSuperview()
         }
-        notesTopToVolumeConstraint?.deactivate()
 
-        saveButton.snp.remakeConstraints { make in
-            make.top.equalTo(notesOptionalView.snp.bottom).offset(20 * Constraint.yCoeff)
-            make.leading.trailing.equalToSuperview().inset(30 * Constraint.yCoeff)
-            make.height.equalTo(50 * Constraint.xCoeff)
-            make.bottom.equalTo(contentView).offset(-24 * Constraint.xCoeff)
+        // Controls
+        startPauseButton.snp.makeConstraints {
+            $0.top.equalTo(timerCircle.snp.bottom).offset(24 * Constraint.xCoeff)
+            $0.centerX.equalToSuperview()
+            $0.width.height.equalTo(56 * Constraint.xCoeff)
+        }
+
+        resetButton.snp.makeConstraints {
+            $0.centerY.equalTo(startPauseButton)
+            $0.leading.equalTo(startPauseButton.snp.trailing).offset(20 * Constraint.xCoeff)
+            $0.width.height.equalTo(44 * Constraint.xCoeff)
+        }
+
+        durationHintLabel.snp.makeConstraints {
+            $0.top.equalTo(startPauseButton.snp.bottom).offset(10 * Constraint.xCoeff)
+            $0.centerX.equalToSuperview()
+        }
+
+        // Volume (hidden for breast)
+        volumeView.snp.makeConstraints {
+            $0.top.equalTo(titleLabel.snp.bottom).offset(16 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
+            $0.height.equalTo(150 * Constraint.xCoeff)
+        }
+
+        // Notes card
+        notesCardView.snp.makeConstraints {
+            $0.top.equalTo(durationHintLabel.snp.bottom).offset(20 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
+        }
+        notesLabel.snp.makeConstraints {
+            $0.top.leading.equalToSuperview().inset(14)
+        }
+        notesTextView.snp.makeConstraints {
+            $0.top.equalTo(notesLabel.snp.bottom).offset(8)
+            $0.leading.trailing.bottom.equalToSuperview().inset(14)
+            $0.height.greaterThanOrEqualTo(60)
+        }
+        notesPlaceholder.snp.makeConstraints {
+            $0.top.leading.equalTo(notesTextView)
+        }
+
+        saveButton.snp.makeConstraints {
+            $0.top.equalTo(notesCardView.snp.bottom).offset(20 * Constraint.xCoeff)
+            $0.leading.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
+            $0.height.equalTo(54 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().inset(32 * Constraint.xCoeff)
         }
     }
 
+    // MARK: - Public configure
+
+    func configure(initialType: FeedingTypeView.FeedingType, showTypePicker: Bool = true) {
+        currentFeedingType = initialType
+
+        // Stop and reset any running timer
+        stopTimer()
+        resetTimerState()
+
+        switch initialType {
+        case .breast:
+            titleLabel.text = "Breast Feeding"
+            sideContainer.isHidden = false
+            timerCircle.isHidden = false
+            startPauseButton.isHidden = false
+            resetButton.isHidden = false
+            durationHintLabel.isHidden = false
+            volumeView.isHidden = true
+            saveButton.setTitle("Save Session", for: .normal)
+            // notes anchor to hint label (breast layout)
+            notesCardView.snp.remakeConstraints {
+                $0.top.equalTo(durationHintLabel.snp.bottom).offset(20 * Constraint.xCoeff)
+                $0.leading.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
+            }
+        case .bottle, .formula, .solid:
+            let typeName: String
+            switch initialType {
+            case .bottle: typeName = "Bottle Feeding"
+            case .formula: typeName = "Formula Feeding"
+            case .solid: typeName = "Solid Food"
+            default: typeName = "Feeding"
+            }
+            titleLabel.text = typeName
+            sideContainer.isHidden = true
+            timerCircle.isHidden = true
+            startPauseButton.isHidden = true
+            resetButton.isHidden = true
+            durationHintLabel.isHidden = true
+            volumeView.isHidden = false
+            volumeView.reset()
+            saveButton.setTitle("Save", for: .normal)
+            // notes anchor to volumeView
+            notesCardView.snp.remakeConstraints {
+                $0.top.equalTo(self.volumeView.snp.bottom).offset(16 * Constraint.xCoeff)
+                $0.leading.trailing.equalToSuperview().inset(20 * Constraint.xCoeff)
+            }
+        }
+
+        notesTextView.text = ""
+        notesPlaceholder.isHidden = false
+        layoutIfNeeded()
+    }
+
+    // MARK: - Side selection
+
+    private enum BreastSide { case left, right }
+
+    @objc private func sideTapped(_ sender: UIButton) {
+        selectedSide = sender.tag == 0 ? .left : .right
+        updateSideSelection(animated: true)
+    }
+
+    private func updateSideSelection(animated: Bool) {
+        let accent = UIColor.brandPrimary
+        let leftSelected = selectedSide == .left
+
+        let applyChanges = {
+            self.leftButton.backgroundColor = leftSelected ? accent : .clear
+            self.leftButton.setTitleColor(leftSelected ? .white : .secondaryLabel, for: .normal)
+            self.rightButton.backgroundColor = leftSelected ? .clear : accent
+            self.rightButton.setTitleColor(leftSelected ? .secondaryLabel : .white, for: .normal)
+            self.sideIndicatorLabel.text = leftSelected ? "Left breast" : "Right breast"
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.2, animations: applyChanges)
+        } else {
+            applyChanges()
+        }
+    }
+
+    // MARK: - Timer logic
+
+    @objc private func startPauseTapped() {
+        if timerIsRunning {
+            pauseTimer()
+        } else {
+            startTimer()
+        }
+    }
+
+    @objc private func resetTapped() {
+        stopTimer()
+        resetTimerState()
+    }
+
+    private func startTimer() {
+        timerIsRunning = true
+        countTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.elapsedSeconds += 1
+            self?.updateTimerLabel()
+        }
+        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        startPauseButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: cfg), for: .normal)
+        startPauseButton.backgroundColor = UIColor(hexString: "#E07A5F")
+        durationHintLabel.text = "Tap ⏸ to pause"
+    }
+
+    private func pauseTimer() {
+        timerIsRunning = false
+        countTimer?.invalidate()
+        countTimer = nil
+        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        startPauseButton.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
+        startPauseButton.backgroundColor = .brandPrimary
+        durationHintLabel.text = "Tap ▶ to resume"
+    }
+
+    private func stopTimer() {
+        timerIsRunning = false
+        countTimer?.invalidate()
+        countTimer = nil
+    }
+
+    private func resetTimerState() {
+        elapsedSeconds = 0
+        timerLabel.text = "00:00"
+        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        startPauseButton.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
+        startPauseButton.backgroundColor = .brandPrimary
+        durationHintLabel.text = "Tap ▶ to start the timer"
+    }
+
+    private func updateTimerLabel() {
+        let mins = elapsedSeconds / 60
+        let secs = elapsedSeconds % 60
+        timerLabel.text = String(format: "%02d:%02d", mins, secs)
+    }
+
+    // MARK: - Save / Close
+
+    @objc private func saveButtonTapped() {
+        let type = currentFeedingType
+        let volumeText: String?
+        if type == .breast {
+            let mins = elapsedSeconds / 60
+            let secs = elapsedSeconds % 60
+            let side = selectedSide == .left ? "L" : "R"
+            volumeText = elapsedSeconds > 0 ? "\(side) \(String(format: "%02d:%02d", mins, secs))" : nil
+        } else {
+            volumeText = volumeView.selectedVolumeText
+        }
+        let notesText: String? = {
+            let t = notesTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.isEmpty ? nil : t
+        }()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        let timeText = formatter.string(from: Date())
+        formatter.dateFormat = "MMM d"
+        let dateText = formatter.string(from: Date())
+
+        onTapSave?(type, volumeText, notesText, timeText, dateText)
+        stopTimer()
+        onTapCloseButton?()
+    }
+
+    @objc private func closeButtonTapped() {
+        stopTimer()
+        onTapCloseButton?()
+    }
+
+    // MARK: - Keyboard
+
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardWillShow(_:)),
-            name: UIResponder.keyboardWillShowNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardWillHide(_:)),
-            name: UIResponder.keyboardWillHideNotification,
-            object: nil
-        )
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)),
+                                               name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)),
+                                               name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
     @objc private func keyboardWillShow(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let frame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-        let keyboardHeight = frame.height
-        scrollView.contentInset.bottom = keyboardHeight
-        scrollView.verticalScrollIndicatorInsets.bottom = keyboardHeight
-        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
-            self.layoutIfNeeded()
-        }
+        guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+        scrollView.contentInset.bottom = frame.height
+        scrollView.verticalScrollIndicatorInsets.bottom = frame.height
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let notesFrame = self.notesOptionalView.convert(self.notesOptionalView.bounds, to: self.scrollView)
-            self.scrollView.scrollRectToVisible(notesFrame.insetBy(dx: 0, dy: -80), animated: true)
+            let r = self.notesTextView.convert(self.notesTextView.bounds, to: self.scrollView)
+            self.scrollView.scrollRectToVisible(r.insetBy(dx: 0, dy: -40), animated: true)
         }
     }
 
     @objc private func keyboardWillHide(_ notification: Notification) {
         scrollView.contentInset.bottom = 0
         scrollView.verticalScrollIndicatorInsets.bottom = 0
-        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
-            self.layoutIfNeeded()
-        }
     }
+}
 
-    private func currentTimeText() -> String {
-        // If TimeButtonView exposes a selected time string, use it; otherwise fallback to now
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: Date())
-    }
+// MARK: - UITextViewDelegate
 
-    private func currentDateText() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: Date())
-    }
-
-    private func currentVolumeText() -> String? {
-        if currentFeedingType == .breast {
-            return timeButtonView.selectedDurationText
-        }
-        return volumeButtonView.selectedVolumeText
-    }
-
-    private func currentNotesText() -> String? {
-        let s = notesOptionalView.notesText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return s.isEmpty ? nil : s
-    }
-
-    @objc private func saveButtonTapped() {
-        let type = currentFeedingType
-        let volume = currentVolumeText()
-        let notes = currentNotesText()
-        let time = currentTimeText()
-        let date = currentDateText()
-        onTapSave?(type, volume, notes, time, date)
-        // Optionally close
-        self.onTapCloseButton?()
-    }
-
-    @objc private func closeButtonTapped() {
-        self.onTapCloseButton?()
-    }
-
-    func configure(initialType: FeedingTypeView.FeedingType, showTypePicker: Bool = true) {
-        timeButtonView.reset()
-        volumeButtonView.reset()
-        notesOptionalView.reset()
-        currentFeedingType = initialType
-
-        feedingTypeView.isHidden = !showTypePicker
-        feedingTypeView.setSelectedType(initialType)
-
-        selectedTypeBadge.isHidden = showTypePicker
-        if !showTypePicker {
-            switch initialType {
-            case .breast:
-                selectedTypeBadgeLabel.text = "Start Breast"
-                selectedTypeBadge.backgroundColor = UIColor(hexString: "#e07a5f")
-            case .bottle:
-                selectedTypeBadgeLabel.text = "Bottle"
-                selectedTypeBadge.backgroundColor = UIColor(hexString: "#9b7fd4")
-            case .formula:
-                selectedTypeBadgeLabel.text = "Formula"
-                selectedTypeBadge.backgroundColor = UIColor(hexString: "#4a9fc4")
-            case .solid:
-                selectedTypeBadgeLabel.text = "Solid"
-                selectedTypeBadge.backgroundColor = UIColor(hexString: "#5aac7c")
-            }
-        }
-
-        // Re-anchor input views depending on whether the type picker is visible
-        let topAnchor = showTypePicker ? feedingTypeView.snp.bottom : selectedTypeBadge.snp.bottom
-
-        timeButtonView.snp.remakeConstraints { make in
-            make.top.equalTo(topAnchor).offset(20 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(140 * Constraint.xCoeff)
-        }
-        volumeButtonView.snp.remakeConstraints { make in
-            make.top.equalTo(topAnchor).offset(20 * Constraint.xCoeff)
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(140 * Constraint.xCoeff)
-        }
-        notesOptionalView.snp.remakeConstraints { make in
-            self.notesTopToTimeConstraint   = make.top.equalTo(timeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
-            self.notesTopToVolumeConstraint = make.top.equalTo(volumeButtonView.snp.bottom).offset(20 * Constraint.xCoeff).constraint
-            make.leading.trailing.equalToSuperview().inset(10 * Constraint.yCoeff)
-            make.height.equalTo(140 * Constraint.xCoeff)
-        }
-
-        let sheetHeight: CGFloat = showTypePicker ? 600 : 470
-
-        switch initialType {
-        case .breast:
-            timeButtonView.isHidden = false
-            volumeButtonView.isHidden = true
-            feedingViewHeightConstraint?.update(offset: sheetHeight * Constraint.xCoeff)
-            notesTopToVolumeConstraint?.deactivate()
-            notesTopToTimeConstraint?.activate()
-        case .bottle, .formula, .solid:
-            timeButtonView.isHidden = true
-            volumeButtonView.isHidden = false
-            feedingViewHeightConstraint?.update(offset: sheetHeight * Constraint.xCoeff)
-            notesTopToTimeConstraint?.deactivate()
-            notesTopToVolumeConstraint?.activate()
-        }
-        layoutIfNeeded()
+extension FeedingView: UITextViewDelegate {
+    func textViewDidChange(_ textView: UITextView) {
+        notesPlaceholder.isHidden = !textView.text.isEmpty
     }
 }

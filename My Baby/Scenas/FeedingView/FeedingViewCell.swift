@@ -207,9 +207,9 @@ final class FeedingViewCell: UICollectionViewCell {
 
         switch entry.typeRaw {
         case "breast":
-            accentStrip.backgroundColor = UIColor.systemPink
-            typeBadge.backgroundColor = UIColor.systemPink.withAlphaComponent(0.12)
-            typeBadgeLabel.textColor = UIColor.systemPink
+            accentStrip.backgroundColor = UIColor(hexString: "#E8613A")
+            typeBadge.backgroundColor = UIColor(hexString: "#E8613A").withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = UIColor(hexString: "#E8613A")
             typeBadgeLabel.text = "Breast"
         case "bottle":
             accentStrip.backgroundColor = UIColor(hexString: "#9b7fd4")
@@ -217,9 +217,9 @@ final class FeedingViewCell: UICollectionViewCell {
             typeBadgeLabel.textColor = UIColor(hexString: "#9b7fd4")
             typeBadgeLabel.text = "Bottle"
         case "formula":
-            accentStrip.backgroundColor = UIColor.systemOrange
-            typeBadge.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.12)
-            typeBadgeLabel.textColor = UIColor.systemOrange
+            accentStrip.backgroundColor = UIColor(hexString: "#4a9fc4")
+            typeBadge.backgroundColor = UIColor(hexString: "#4a9fc4").withAlphaComponent(0.12)
+            typeBadgeLabel.textColor = UIColor(hexString: "#4a9fc4")
             typeBadgeLabel.text = "Formula"
         default:
             accentStrip.backgroundColor = UIColor(hexString: "#5aac7c")
