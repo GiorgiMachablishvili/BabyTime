@@ -324,7 +324,8 @@ final class SleepViewController: UIViewController {
             let header = cv.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: SleepSectionHeader.reuseId, for: indexPath) as! SleepSectionHeader
             if indexPath.section == Section.todayLog.rawValue {
                 let title = Calendar.current.isDateInToday(self.selectedDate) ? "Today's sleeps" : self.formatDate(self.selectedDate)
-                header.configure(title: title)
+                header.configureTodayHeader(title: title)
+                header.onTapViewAll = { [weak self] in self?.openSleepHistory() }
             } else {
                 header.configure(title: "")
             }
@@ -792,6 +793,11 @@ final class SleepViewController: UIViewController {
     private func formatDate(_ date: Date) -> String {
         let df = DateFormatter(); df.dateFormat = "EEEE, MMM d"
         return df.string(from: date)
+    }
+
+    private func openSleepHistory() {
+        let vc = SleepHistoryViewController()
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
@@ -1851,6 +1857,8 @@ final class SleepCalendarCell: UICollectionViewCell {
 final class SleepSectionHeader: UICollectionReusableView {
     static let reuseId = "SleepSectionHeader"
 
+    var onTapViewAll: (() -> Void)?
+
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.font = .systemFont(ofSize: 17 * Constraint.yCoeff, weight: .bold)
@@ -1858,13 +1866,44 @@ final class SleepSectionHeader: UICollectionReusableView {
         return l
     }()
 
+    private lazy var viewAllButton: UIButton = {
+        let btn = UIButton(type: .system)
+        var config = UIButton.Configuration.plain()
+        config.title = "View all"
+        config.image = UIImage(systemName: "chevron.right",
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
+        config.imagePlacement = .trailing
+        config.imagePadding = 4
+        config.baseForegroundColor = .label
+        config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
+        btn.configuration = config
+        btn.isHidden = true
+        return btn
+    }()
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         addSubview(titleLabel)
+        addSubview(viewAllButton)
         titleLabel.snp.makeConstraints { $0.leading.equalToSuperview(); $0.centerY.equalToSuperview() }
+        viewAllButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview()
+            $0.centerY.equalToSuperview()
+        }
+        viewAllButton.addTarget(self, action: #selector(viewAllTapped), for: .touchUpInside)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(title: String) { titleLabel.text = title }
+    @objc private func viewAllTapped() { onTapViewAll?() }
+
+    func configure(title: String) {
+        titleLabel.text = title
+        viewAllButton.isHidden = true
+    }
+
+    func configureTodayHeader(title: String) {
+        titleLabel.text = title
+        viewAllButton.isHidden = false
+    }
 }

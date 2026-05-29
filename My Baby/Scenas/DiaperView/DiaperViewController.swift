@@ -421,7 +421,7 @@ final class DiaperViewController: UIViewController {
                     df.dateFormat = "EEEE, MMM d"
                     title = df.string(from: selDate)
                 }
-                header.configure(left: title, rightButtonTitle: "View All", onTap: nil)
+                header.configure(left: title, rightButtonTitle: "View all", onTap: { [weak self] in self?.openDiaperHistory() })
             default:
                 break
             }
@@ -519,6 +519,14 @@ final class DiaperViewController: UIViewController {
         } completion: { _ in
             self.diaperView.isHidden = true
         }
+    }
+
+    private func openDiaperHistory() {
+        let vc = DiaperHistoryViewController()
+        vc.onNewEntry = { [weak self] type, note in
+            self?.addEntry(type: type, note: note)
+        }
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
