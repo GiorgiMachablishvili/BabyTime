@@ -54,12 +54,6 @@ final class SleepHistoryViewController: UIViewController {
         )
         navigationItem.leftBarButtonItem?.tintColor = UIColor(hexString: "#8b6dc4")
 
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "calendar"),
-            style: .plain, target: nil, action: nil
-        )
-        navigationItem.rightBarButtonItem?.tintColor = UIColor(hexString: "#8b6dc4")
-
         setupCollectionView()
         setupDataSource()
         applySnapshot()
