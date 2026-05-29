@@ -1,5 +1,7 @@
 import UIKit
 import SnapKit
+import ActivityKit
+import UserNotifications
 
 // MARK: - Helpers
 
@@ -31,6 +33,19 @@ final class SleepViewController: UIViewController {
     private var activeStartDate: Date?
     private var liveTimer: Timer?
 
+    /// UserDefaults key that persists the sleep-start timestamp across background/kill
+    private let sleepStartKey         = "activeSleepStartTimestamp"
+    private let sleepPausedSecondsKey = "sleepTotalPausedSeconds"
+    private let sleepPausedAtKey      = "sleepPausedAtTimestamp"
+
+    /// Pause state
+    private var isPaused:            Bool              = false
+    private var pauseStartDate:      Date?             = nil
+    private var totalPausedSeconds:  TimeInterval      = 0
+
+    /// Running Live Activity shown on the lock screen / Dynamic Island
+    private var currentLiveActivity: Activity<SleepTimerAttributes>?
+
     private var sleepGoalHours: Double {
         get { UserDefaults.standard.double(forKey: "sleepGoalHours").nonZero ?? 14 }
         set { UserDefaults.standard.set(newValue, forKey: "sleepGoalHours") }
@@ -49,6 +64,17 @@ final class SleepViewController: UIViewController {
         l.font = .systemFont(ofSize: 12 * Constraint.yCoeff, weight: .regular)
         l.textColor = UIColor(hexString: "#999999")
         return l
+    }()
+
+    private lazy var pauseResumeButton: UIButton = {
+        let b = UIButton(type: .system)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        b.setImage(UIImage(systemName: "pause.fill", withConfiguration: cfg), for: .normal)
+        b.tintColor = UIColor(hexString: "#8b6dc4")
+        b.backgroundColor = UIColor(hexString: "#8b6dc4").withAlphaComponent(0.12)
+        b.layer.cornerRadius = 20 * Constraint.yCoeff
+        b.addTarget(self, action: #selector(pauseResumeTapped), for: .touchUpInside)
+        return b
     }()
 
     private lazy var liveTimerCard: UIView = {
@@ -81,22 +107,31 @@ final class SleepViewController: UIViewController {
         v.addSubview(sleepingLabel)
         v.addSubview(self.elapsedLabel)
         v.addSubview(self.startedAtLabel)
+        v.addSubview(self.pauseResumeButton)
 
         moonCircle.snp.makeConstraints {
             $0.leading.equalToSuperview().inset(16 * Constraint.xCoeff)
             $0.centerY.equalToSuperview()
             $0.width.height.equalTo(44 * Constraint.yCoeff)
         }
+        self.pauseResumeButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(40 * Constraint.yCoeff)
+        }
         sleepingLabel.snp.makeConstraints {
             $0.leading.equalTo(moonCircle.snp.trailing).offset(14 * Constraint.xCoeff)
+            $0.trailing.lessThanOrEqualTo(self.pauseResumeButton.snp.leading).offset(-8 * Constraint.xCoeff)
             $0.top.equalToSuperview().inset(14 * Constraint.yCoeff)
         }
         self.elapsedLabel.snp.makeConstraints {
             $0.leading.equalTo(sleepingLabel)
+            $0.trailing.lessThanOrEqualTo(self.pauseResumeButton.snp.leading).offset(-8 * Constraint.xCoeff)
             $0.top.equalTo(sleepingLabel.snp.bottom).offset(2 * Constraint.yCoeff)
         }
         self.startedAtLabel.snp.makeConstraints {
             $0.leading.equalTo(sleepingLabel)
+            $0.trailing.lessThanOrEqualTo(self.pauseResumeButton.snp.leading).offset(-8 * Constraint.xCoeff)
             $0.top.equalTo(self.elapsedLabel.snp.bottom).offset(2 * Constraint.yCoeff)
             $0.bottom.equalToSuperview().inset(14 * Constraint.yCoeff)
         }
@@ -159,6 +194,41 @@ final class SleepViewController: UIViewController {
         setupUI()
         setupDataSource()
         loadData()
+        restoreActiveSessionIfNeeded()
+
+        // Re-sync the UI the instant the user returns to the app
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        // Update notification when going to background
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        // Lock-screen notification action callbacks (posted by AppDelegate)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSleepTimerShouldPause),
+            name: .sleepTimerShouldPause,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSleepTimerShouldResume),
+            name: .sleepTimerShouldResume,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSleepTimerShouldStop),
+            name: .sleepTimerShouldStop,
+            object: nil
+        )
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -229,7 +299,11 @@ final class SleepViewController: UIViewController {
 
             case .timeline:
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: SleepTimelineCell.reuseId, for: indexPath) as! SleepTimelineCell
-                cell.configure(sessions: self.sessionsForSelectedDate(), date: self.selectedDate)
+                cell.configure(
+                    sessions:    self.sessionsForSelectedDate(),
+                    date:        self.selectedDate,
+                    activeStart: self.activeStartDate
+                )
                 return cell
 
             case .empty:
@@ -326,7 +400,7 @@ final class SleepViewController: UIViewController {
         } else {
             snap.appendItems(daySessions.map { Item.session($0.id) }, toSection: .todayLog)
         }
-        snap.reloadSections([.ringStats, .todayLog])
+        snap.reloadSections([.ringStats, .timeline, .todayLog])
         dataSource.apply(snap, animatingDifferences: true)
     }
 
@@ -346,26 +420,55 @@ final class SleepViewController: UIViewController {
 
     @objc private func startButtonTapped() {
         if activeStartDate == nil {
+            // ── Start sleep ──────────────────────────────────────────────
             let now = Date()
             activeStartDate = now
             selectedDate = Calendar.current.startOfDay(for: now)
+
+            // Persist so the timer survives backgrounding / kill
+            UserDefaults.standard.set(now.timeIntervalSince1970, forKey: sleepStartKey)
+
             let tf = DateFormatter(); tf.dateFormat = "h:mm a"
             startedAtLabel.text = "Started at \(tf.string(from: now))"
             elapsedLabel.text = "0:00:00"
-            liveTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                self?.refreshLiveUI()
-            }
-            RunLoop.main.add(liveTimer!, forMode: .common)
+
+            startPeriodicTimer()
+            startSleepLiveActivity(from: now)
+            registerSleepNotificationCategories() // register categories early; banner posts on background
+
             UIView.animate(withDuration: 0.35) { self.liveTimerCard.alpha = 1 }
             collectionView.contentInset.bottom = 210 * Constraint.yCoeff
+
         } else {
+            // ── Stop sleep ───────────────────────────────────────────────
             guard let start = activeStartDate else { return }
             liveTimer?.invalidate(); liveTimer = nil
-            let session = SleepSession(start: start, end: Date())
+
+            // Compute effective duration (subtracts all paused time)
+            let effectiveDuration = currentElapsed()
+            let end = start.addingTimeInterval(effectiveDuration)
+
+            // Clear persistence
+            UserDefaults.standard.removeObject(forKey: sleepStartKey)
+            UserDefaults.standard.removeObject(forKey: sleepPausedSecondsKey)
+            UserDefaults.standard.removeObject(forKey: sleepPausedAtKey)
+
+            // Reset pause state
+            isPaused = false; pauseStartDate = nil; totalPausedSeconds = 0
+
+            let session = SleepSession(start: start, end: end)
             sessions.insert(session, at: 0)
             SleepSessionStore.save(sessions)
             activeStartDate = nil
             selectedDate = Calendar.current.startOfDay(for: start)
+
+            // Reset pause button icon for next session
+            let cfg = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+            pauseResumeButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: cfg), for: .normal)
+
+            stopSleepLiveActivity()
+            clearSleepNotification()
+
             UIView.animate(withDuration: 0.25) { self.liveTimerCard.alpha = 0 }
             collectionView.contentInset.bottom = 120 * Constraint.yCoeff
         }
@@ -416,18 +519,274 @@ final class SleepViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    /// Returns elapsed wall-clock seconds minus all paused time (real effective sleep duration).
+    private func currentElapsed() -> TimeInterval {
+        guard let start = activeStartDate else { return 0 }
+        var paused = totalPausedSeconds
+        if isPaused, let pausedAt = pauseStartDate {
+            paused += Date().timeIntervalSince(pausedAt)
+        }
+        return max(0, Date().timeIntervalSince(start) - paused)
+    }
+
     private func refreshLiveUI() {
-        guard let start = activeStartDate else { return }
-        let elapsed = Date().timeIntervalSince(start)
+        guard activeStartDate != nil else { return }
+        let elapsed = currentElapsed()
         let h = Int(elapsed / 3600)
         let m = Int((elapsed.truncatingRemainder(dividingBy: 3600)) / 60)
         let s = Int(elapsed.truncatingRemainder(dividingBy: 60))
         elapsedLabel.text = String(format: "%d:%02d:%02d", h, m, s)
         var snap = dataSource.snapshot()
-        if snap.itemIdentifiers(inSection: .ringStats).contains(Item.ringStats) {
-            snap.reconfigureItems([Item.ringStats])
+        var toReconfigure: [Item] = []
+        if snap.itemIdentifiers(inSection: .ringStats).contains(.ringStats)   { toReconfigure.append(.ringStats) }
+        if snap.itemIdentifiers(inSection: .timeline).contains(.timeline)     { toReconfigure.append(.timeline) }
+        if !toReconfigure.isEmpty {
+            snap.reconfigureItems(toReconfigure)
             dataSource.apply(snap, animatingDifferences: false)
         }
+    }
+
+    // MARK: - Background / Foreground handling
+
+    /// Called every time the user brings the app back to the foreground.
+    @objc private func appWillEnterForeground() {
+        guard activeStartDate != nil else { return }
+        // Hide the lock-screen notification — the in-app card is now visible instead
+        clearSleepNotification()
+        // Immediately sync elapsed label — the periodic timer takes over after the next tick
+        refreshLiveUI()
+    }
+
+    /// Posts the lock-screen notification the moment the app moves to the background
+    /// (screen lock / home button). At this point iOS delivers it to the lock screen directly,
+    /// bypassing the willPresent foreground-intercept path.
+    @objc private func appDidEnterBackground() {
+        guard activeStartDate != nil else { return }
+        postSleepNotificationNow()
+    }
+
+    // MARK: - Pause / Resume
+
+    /// Tapping the in-card pause/resume button.
+    @objc private func pauseResumeTapped() {
+        if isPaused { resumeTimer() } else { pauseTimer() }
+    }
+
+    /// Triggered by AppDelegate when the "Pause" lock-screen action fires.
+    @objc private func handleSleepTimerShouldPause() {
+        guard !isPaused else { return }
+        DispatchQueue.main.async { self.pauseTimer() }
+    }
+
+    /// Triggered by AppDelegate when the "Resume" lock-screen action fires.
+    @objc private func handleSleepTimerShouldResume() {
+        guard isPaused else { return }
+        DispatchQueue.main.async { self.resumeTimer() }
+    }
+
+    /// Triggered by AppDelegate when the "Stop" lock-screen action fires.
+    @objc private func handleSleepTimerShouldStop() {
+        guard activeStartDate != nil else { return }
+        // The handler in AppDelegate also calls stopAndSaveIfNeeded() as a direct fallback,
+        // so guard against a double-save by checking activeStartDate first.
+        DispatchQueue.main.async { self.startButtonTapped() }
+    }
+
+    private func pauseTimer() {
+        guard !isPaused, activeStartDate != nil else { return }
+        isPaused = true
+        pauseStartDate = Date()
+        liveTimer?.invalidate(); liveTimer = nil
+
+        // Persist the moment we paused so stopAndSaveIfNeeded() can compute correct duration
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: sleepPausedAtKey)
+
+        // Swap button icon → play (resume)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        pauseResumeButton.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
+
+        // Only update the lock-screen notification if the app is already backgrounded
+        // (i.e. the action came from the lock screen, not an in-app tap)
+        if UIApplication.shared.applicationState != .active {
+            postSleepNotificationNow()
+        }
+    }
+
+    private func resumeTimer() {
+        guard isPaused, activeStartDate != nil else { return }
+
+        // Accumulate the pause window that just ended
+        if let pausedAt = pauseStartDate {
+            totalPausedSeconds += Date().timeIntervalSince(pausedAt)
+        }
+        isPaused = false
+        pauseStartDate = nil
+
+        // Persist new accumulated total; clear the "paused at" timestamp
+        UserDefaults.standard.set(totalPausedSeconds, forKey: sleepPausedSecondsKey)
+        UserDefaults.standard.removeObject(forKey: sleepPausedAtKey)
+
+        // Swap button icon → pause
+        let cfg = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        pauseResumeButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: cfg), for: .normal)
+
+        startPeriodicTimer()
+        refreshLiveUI()
+
+        // Only update the lock-screen notification if the app is already backgrounded
+        if UIApplication.shared.applicationState != .active {
+            postSleepNotificationNow()
+        }
+    }
+
+    /// Restores an in-progress sleep session after the app was killed or backgrounded.
+    private func restoreActiveSessionIfNeeded() {
+        let ts = UserDefaults.standard.double(forKey: sleepStartKey)
+        guard ts > 0 else { return }
+
+        let start = Date(timeIntervalSince1970: ts)
+        activeStartDate = start
+
+        // Restore accumulated paused seconds
+        totalPausedSeconds = UserDefaults.standard.double(forKey: sleepPausedSecondsKey)
+
+        // Restore paused state if we were paused when the app was killed
+        let pausedAtTs = UserDefaults.standard.double(forKey: sleepPausedAtKey)
+        if pausedAtTs > 0 {
+            isPaused = true
+            pauseStartDate = Date(timeIntervalSince1970: pausedAtTs)
+            // Show resume icon
+            let cfg = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+            pauseResumeButton.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
+        }
+
+        let tf = DateFormatter(); tf.dateFormat = "h:mm a"
+        startedAtLabel.text = "Started at \(tf.string(from: start))"
+
+        if !isPaused { startPeriodicTimer() }
+        refreshLiveUI()
+        registerSleepNotificationCategories() // categories ready; banner posts next time user backgrounds
+
+        liveTimerCard.alpha = 1
+        collectionView.contentInset.bottom = 210 * Constraint.yCoeff
+        updateStartButton()
+        applySnapshot()
+    }
+
+    /// Starts the 1-second UI-update timer.
+    private func startPeriodicTimer() {
+        liveTimer?.invalidate()
+        liveTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.refreshLiveUI()
+        }
+        RunLoop.main.add(liveTimer!, forMode: .common)
+    }
+
+    // MARK: - Live Activity (lock screen / Dynamic Island)
+
+    private func startSleepLiveActivity(from start: Date) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let babyName = BabyProfileStore.loadName() ?? "Baby"
+        let attributes = SleepTimerAttributes(sessionID: UUID().uuidString)
+        let state = SleepTimerAttributes.ContentState(startTime: start, babyName: babyName)
+        do {
+            currentLiveActivity = try Activity.request(
+                attributes: attributes,
+                content: .init(state: state, staleDate: nil),
+                pushType: nil
+            )
+        } catch {
+            print("Live Activity could not be started: \(error.localizedDescription)")
+        }
+    }
+
+    private func stopSleepLiveActivity() {
+        Task {
+            // End all sleep activities (covers the case of a crash-restart re-launch)
+            for activity in Activity<SleepTimerAttributes>.activities {
+                await activity.end(.init(state: activity.content.state, staleDate: nil),
+                                   dismissalPolicy: .immediate)
+            }
+            currentLiveActivity = nil
+        }
+    }
+
+    // MARK: - Lock-screen notification
+
+    private let sleepNotificationID = "sleepInProgressNotification"
+
+    /// Requests permission and registers Pause/Resume/Stop categories.
+    /// Call this when the sleep timer starts so the categories are ready
+    /// before the first notification fires.
+    private func registerSleepNotificationCategories() {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .badge]) { granted, _ in
+            guard granted else { return }
+            let pause  = UNNotificationAction(identifier: "PAUSE_SLEEP",  title: "Pause",      options: [])
+            let resume = UNNotificationAction(identifier: "RESUME_SLEEP", title: "Resume",     options: [])
+            let stop   = UNNotificationAction(identifier: "STOP_SLEEP",   title: "Stop Sleep", options: [.foreground])
+            let running = UNNotificationCategory(identifier: "SLEEP_RUNNING",
+                                                 actions: [pause, stop],
+                                                 intentIdentifiers: [], options: [])
+            let paused  = UNNotificationCategory(identifier: "SLEEP_PAUSED",
+                                                 actions: [resume, stop],
+                                                 intentIdentifiers: [], options: [])
+            center.setNotificationCategories([running, paused])
+        }
+    }
+
+    /// Posts (or replaces) the lock-screen notification.
+    /// MUST be called only while the app is in the background — notifications
+    /// delivered in the background go directly to the lock screen without
+    /// going through the willPresent foreground-intercept path.
+    private func postSleepNotificationNow() {
+        guard let start = activeStartDate else { return }
+        let center = UNUserNotificationCenter.current()
+
+        center.getNotificationSettings { [weak self] settings in
+            guard let self else { return }
+            guard settings.authorizationStatus == .authorized ||
+                  settings.authorizationStatus == .provisional else { return }
+
+            // Remove any previous banner before posting a fresh one
+            center.removeDeliveredNotifications(withIdentifiers: [self.sleepNotificationID])
+            center.removePendingNotificationRequests(withIdentifiers: [self.sleepNotificationID])
+
+            let content  = UNMutableNotificationContent()
+            let babyName = BabyProfileStore.loadName() ?? "Baby"
+            let elapsed  = self.currentElapsed()
+            let h = Int(elapsed / 3600)
+            let m = Int((elapsed.truncatingRemainder(dividingBy: 3600)) / 60)
+            let elapsedStr = h > 0 ? "\(h)h \(m)m" : "\(m)m"
+
+            if self.isPaused {
+                content.title = "\(babyName)'s sleep is paused ⏸"
+                content.body  = "\(elapsedStr) elapsed · tap Resume to continue"
+                content.categoryIdentifier = "SLEEP_PAUSED"
+            } else {
+                let tf = DateFormatter(); tf.dateFormat = "h:mm a"
+                content.title = "\(babyName) is sleeping 🌙"
+                content.body  = "Started \(tf.string(from: start)) · \(elapsedStr) elapsed"
+                content.categoryIdentifier = "SLEEP_RUNNING"
+            }
+            content.sound = nil
+            content.interruptionLevel = .active
+
+            // 0.5 s delay guarantees the app is fully backgrounded before delivery
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: self.sleepNotificationID,
+                content: content,
+                trigger: trigger
+            )
+            center.add(request)
+        }
+    }
+
+    private func clearSleepNotification() {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [sleepNotificationID])
+        center.removeDeliveredNotifications(withIdentifiers: [sleepNotificationID])
     }
 
     private func formatDate(_ date: Date) -> String {
@@ -780,6 +1139,78 @@ private final class SleepRingView: UIView {
     }
 }
 
+// MARK: - SleepTrackView
+// A self-contained view that owns its segment data and positions them in its own layoutSubviews.
+// This avoids the timing problem where the parent cell's layoutSubviews fires before the
+// track view has received real bounds from auto layout.
+
+private final class SleepTrackView: UIView {
+
+    struct Segment {
+        let startFraction: CGFloat   // 0…1 fraction of the 24-h day
+        let endFraction:   CGFloat
+        let color:         UIColor
+        let isLive:        Bool      // currently running → pulsing alpha
+    }
+
+    private var segments: [Segment] = []
+    private var segViews: [UIView]  = []
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = UIColor(hexString: "#f5f0ff")
+        layer.cornerRadius = 16 * Constraint.yCoeff
+        clipsToBounds = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    func setSegments(_ segments: [Segment]) {
+        segViews.forEach { $0.removeFromSuperview() }
+        segViews = []
+        self.segments = segments
+
+        for seg in segments {
+            let v = UIView()
+            v.backgroundColor = seg.color
+            v.clipsToBounds = true
+            addSubview(v)
+            segViews.append(v)
+
+            if seg.isLive {
+                // Gentle pulse to show it's live
+                let pulse = CABasicAnimation(keyPath: "opacity")
+                pulse.fromValue = 1.0
+                pulse.toValue   = 0.55
+                pulse.duration  = 1.1
+                pulse.autoreverses = true
+                pulse.repeatCount  = .infinity
+                v.layer.add(pulse, forKey: "livePulse")
+            }
+        }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let trackW = bounds.width
+        guard trackW > 0, segments.count == segViews.count else { return }
+
+        let segH = bounds.height - 8 * Constraint.yCoeff
+        let segY = 4 * Constraint.yCoeff
+        let radius = segH / 2
+        let minW   = segH   // minimum width = height so it's always at least a circle
+
+        for (i, view) in segViews.enumerated() {
+            let seg  = segments[i]
+            let x    = seg.startFraction * trackW
+            let rawW = (seg.endFraction - seg.startFraction) * trackW
+            let w    = max(rawW, minW)
+            view.frame = CGRect(x: x, y: segY, width: w, height: segH)
+            view.layer.cornerRadius = radius
+        }
+    }
+}
+
 // MARK: - SleepTimelineCell
 
 final class SleepTimelineCell: UICollectionViewCell {
@@ -793,17 +1224,7 @@ final class SleepTimelineCell: UICollectionViewCell {
         return l
     }()
 
-    private let trackView: UIView = {
-        let v = UIView()
-        v.backgroundColor = UIColor(hexString: "#f5f0ff")
-        v.layer.cornerRadius = 16 * Constraint.yCoeff
-        v.clipsToBounds = true
-        return v
-    }()
-
-    private let amLabel: UILabel = makeTimeLabel("12am")
-    private let noonLabel: UILabel = makeTimeLabel("12pm")
-    private let pmLabel: UILabel = makeTimeLabel("11:59pm")
+    private let trackView = SleepTrackView()
 
     private static func makeTimeLabel(_ text: String) -> UILabel {
         let l = UILabel()
@@ -813,7 +1234,9 @@ final class SleepTimelineCell: UICollectionViewCell {
         return l
     }
 
-    private var segmentViews: [UIView] = []
+    private let amLabel   = makeTimeLabel("12am")
+    private let noonLabel = makeTimeLabel("12pm")
+    private let pmLabel   = makeTimeLabel("11:59pm")
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -824,78 +1247,83 @@ final class SleepTimelineCell: UICollectionViewCell {
         contentView.addSubview(noonLabel)
         contentView.addSubview(pmLabel)
 
-        titleLabel.snp.makeConstraints {
-            $0.top.leading.equalToSuperview()
-        }
+        titleLabel.snp.makeConstraints { $0.top.leading.equalToSuperview() }
         trackView.snp.makeConstraints {
             $0.top.equalTo(titleLabel.snp.bottom).offset(10 * Constraint.yCoeff)
             $0.leading.trailing.equalToSuperview()
-            $0.height.equalTo(38 * Constraint.yCoeff)
+            $0.height.equalTo(42 * Constraint.yCoeff)
         }
         amLabel.snp.makeConstraints {
             $0.top.equalTo(trackView.snp.bottom).offset(4 * Constraint.yCoeff)
             $0.leading.equalToSuperview()
         }
         noonLabel.snp.makeConstraints {
-            $0.top.equalTo(amLabel)
-            $0.centerX.equalToSuperview()
+            $0.top.equalTo(amLabel); $0.centerX.equalToSuperview()
         }
         pmLabel.snp.makeConstraints {
-            $0.top.equalTo(amLabel)
-            $0.trailing.equalToSuperview()
+            $0.top.equalTo(amLabel); $0.trailing.equalToSuperview()
         }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(sessions: [SleepSession], date: Date) {
-        segmentViews.forEach { $0.removeFromSuperview() }
-        segmentViews = []
+    // MARK: Configure
 
-        let cal = Calendar.current
+    /// - Parameters:
+    ///   - sessions:    All sessions for the selected day.
+    ///   - date:        The day being displayed.
+    ///   - activeStart: Start of a currently-running session (nil if none).
+    func configure(sessions: [SleepSession], date: Date, activeStart: Date? = nil) {
+        let cal      = Calendar.current
         let dayStart = cal.startOfDay(for: date)
-        let dayEnd = dayStart.addingTimeInterval(86400)
+        let dayEnd   = dayStart.addingTimeInterval(86400)
+
+        var built: [SleepTrackView.Segment] = []
 
         for session in sessions {
-            let clampedStart = max(session.start, dayStart)
-            let clampedEnd = min(session.end, dayEnd)
-            guard clampedEnd > clampedStart else { continue }
+            let cs = max(session.start, dayStart)
+            let ce = min(session.end,   dayEnd)
+            guard ce > cs else { continue }
 
-            let startFraction = clampedStart.timeIntervalSince(dayStart) / 86400
-            let endFraction   = clampedEnd.timeIntervalSince(dayStart)   / 86400
-
-            let seg = UIView()
-            let hour = cal.component(.hour, from: session.start)
-            let isNight = hour >= 19 || hour < 6
-            // Night sleep → purple, morning nap → soft orange, afternoon nap → peach
-            if isNight {
-                seg.backgroundColor = UIColor(hexString: "#8b6dc4")
-            } else if hour < 12 {
-                seg.backgroundColor = UIColor(hexString: "#f4a261").withAlphaComponent(0.85)
-            } else {
-                seg.backgroundColor = UIColor(hexString: "#f0b7a5")
-            }
-            seg.clipsToBounds = true
-            // Store fractions — layoutSubviews does all the frame math once trackView has real bounds
-            seg.accessibilityValue = "\(startFraction),\(endFraction)"
-            trackView.addSubview(seg)
-            segmentViews.append(seg)
+            let sf = CGFloat(cs.timeIntervalSince(dayStart) / 86400)
+            let ef = CGFloat(ce.timeIntervalSince(dayStart) / 86400)
+            built.append(.init(
+                startFraction: sf,
+                endFraction:   ef,
+                color:         segmentColor(for: session.start),
+                isLive:        false
+            ))
         }
-        setNeedsLayout()
+
+        // Add the currently-running session as a live (pulsing) segment
+        if let activeStart, cal.isDate(activeStart, inSameDayAs: date) {
+            let cs  = max(activeStart, dayStart)
+            let now = min(Date(), dayEnd)
+            if now > cs {
+                let sf = CGFloat(cs.timeIntervalSince(dayStart)  / 86400)
+                let ef = CGFloat(now.timeIntervalSince(dayStart) / 86400)
+                built.append(.init(
+                    startFraction: sf,
+                    endFraction:   ef,
+                    color:         UIColor(hexString: "#8b6dc4"),
+                    isLive:        true
+                ))
+            }
+        }
+
+        trackView.setSegments(built)
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        let trackW = trackView.bounds.width
-        guard trackW > 0 else { return }
+    // MARK: - Helpers
 
-        for seg in segmentViews {
-            guard let fracs = seg.accessibilityValue?.split(separator: ",").compactMap({ Double($0) }),
-                  fracs.count == 2 else { continue }
-            let x = CGFloat(fracs[0]) * trackW
-            let w = max(CGFloat(fracs[1] - fracs[0]) * trackW, 8 * Constraint.xCoeff)
-            seg.frame = CGRect(x: x, y: 4 * Constraint.yCoeff, width: w, height: trackView.bounds.height - 8 * Constraint.yCoeff)
-            seg.layer.cornerRadius = seg.bounds.height / 2
+    private func segmentColor(for date: Date) -> UIColor {
+        let hour = Calendar.current.component(.hour, from: date)
+        if hour >= 19 || hour < 6 {
+            return UIColor(hexString: "#8b6dc4")                         // Night — purple
+        } else if hour < 12 {
+            return UIColor(hexString: "#f4a261").withAlphaComponent(0.85) // Morning nap — orange
+        } else {
+            return UIColor(hexString: "#f0b7a5")                         // Afternoon nap — peach
         }
     }
 }

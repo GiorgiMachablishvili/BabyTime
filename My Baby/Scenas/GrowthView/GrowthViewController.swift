@@ -164,6 +164,9 @@ final class GrowthViewController: UIViewController {
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
 
+        familyView.onParent1Tapped = { [weak self] in self?.showParent1TypePicker() }
+        familyView.onParent2Tapped = { [weak self] in self?.showParent2TypePicker() }
+
         allInputFields().forEach {
             $0.addTarget(self, action: #selector(fieldChanged), for: .editingChanged)
         }
@@ -485,9 +488,56 @@ final class GrowthViewController: UIViewController {
             case (.father, .mother): motherField.setLabelText("Father height"); fatherField.setLabelText("Mother height")
             case (.mother, .mother): motherField.setLabelText("Mother 1 height"); fatherField.setLabelText("Mother 2 height")
             case (.father, .father): motherField.setLabelText("Father 1 height"); fatherField.setLabelText("Father 2 height")
-            default: break
+            default:
+                let p1Label = p1.displayName.isEmpty ? "Parent 1" : p1.displayName
+                let p2Label = p2.displayName.isEmpty ? "Parent 2" : p2.displayName
+                motherField.setLabelText("\(p1Label) height")
+                fatherField.setLabelText("\(p2Label) height")
             }
         }
+    }
+
+    private func showParent1TypePicker() {
+        let alert = UIAlertController(title: "Parent 1", message: "Choose parent type", preferredStyle: .actionSheet)
+        let options: [(String, GrowthComparisonData.ParentType)] = [
+            ("Father",   .father),
+            ("Mother",   .mother),
+            ("Parent 1", .parent1),
+        ]
+        for (title, type) in options {
+            alert.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                guard let self else { return }
+                self.compData.parent1Type = type
+                GrowthComparisonStore.save(self.compData)
+                self.updateFieldsForFamilyType()
+                self.updateFamilyView()
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showParent2TypePicker() {
+        let alert = UIAlertController(title: "Parent 2", message: "Choose parent type", preferredStyle: .actionSheet)
+        let options: [(String, GrowthComparisonData.ParentType, Bool)] = [
+            ("Father",        .father,  false),
+            ("Mother",        .mother,  false),
+            ("Parent 2",      .parent2, false),
+            ("Do not choose", .none,    true),
+        ]
+        for (title, type, single) in options {
+            let style: UIAlertAction.Style = (type == .none) ? .destructive : .default
+            alert.addAction(UIAlertAction(title: title, style: style) { [weak self] _ in
+                guard let self else { return }
+                self.compData.parent2Type = type
+                self.isSingleParent = single
+                GrowthComparisonStore.save(self.compData)
+                self.updateFieldsForFamilyType()
+                self.updateFamilyView()
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
     }
 
     @objc private func backTapped()  { navigationController?.popViewController(animated: true) }
@@ -497,6 +547,9 @@ final class GrowthViewController: UIViewController {
 // MARK: - FamilyHeightView
 
 final class FamilyHeightView: UIView {
+
+    var onParent1Tapped: (() -> Void)?
+    var onParent2Tapped: (() -> Void)?
 
     private let accent: UIColor
     private let maxBarH: CGFloat = 140 * Constraint.yCoeff
@@ -528,6 +581,10 @@ final class FamilyHeightView: UIView {
     private let p1Container   = UIView()
     private let babyContainer = UIView()
     private let p2Container   = UIView()
+
+    // "+" hint buttons on parent bars
+    private lazy var p1PlusBtn: UIButton = makePlusButton(selector: #selector(p1Tapped))
+    private lazy var p2PlusBtn: UIButton = makePlusButton(selector: #selector(p2Tapped))
 
     private var p1BarHC:   SnapKit.Constraint?
     private var babyBarHC: SnapKit.Constraint?
@@ -577,15 +634,26 @@ final class FamilyHeightView: UIView {
 
         // Build hierarchy
         p1Bar.addSubview(p1Icon)
+        p1Bar.addSubview(p1PlusBtn)
         babyBar.addSubview(babyIcon)
         babyBar.addSubview(hChip)
         babyBar.addSubview(wChip)
         babyBar.addSubview(hcChip)
         p2Bar.addSubview(p2Icon)
+        p2Bar.addSubview(p2PlusBtn)
 
         p1Container.addSubview(p1Bar)
         babyContainer.addSubview(babyBar)
         p2Container.addSubview(p2Bar)
+
+        // Tap gestures on parent columns
+        p1Container.isUserInteractionEnabled = true
+        let tap1 = UITapGestureRecognizer(target: self, action: #selector(p1Tapped))
+        p1Container.addGestureRecognizer(tap1)
+
+        p2Container.isUserInteractionEnabled = true
+        let tap2 = UITapGestureRecognizer(target: self, action: #selector(p2Tapped))
+        p2Container.addGestureRecognizer(tap2)
 
         let colStack = UIStackView(arrangedSubviews: [p1Container, babyContainer, p2Container])
         colStack.axis = .horizontal
@@ -644,6 +712,19 @@ final class FamilyHeightView: UIView {
             $0.height.equalTo(36 * Constraint.yCoeff)
         }
 
+        // "+" hint buttons — bottom-right corner of each parent bar
+        let plusSize: CGFloat = 22 * Constraint.yCoeff
+        p1PlusBtn.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(6 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().inset(8 * Constraint.yCoeff)
+            $0.width.height.equalTo(plusSize)
+        }
+        p2PlusBtn.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(6 * Constraint.xCoeff)
+            $0.bottom.equalToSuperview().inset(8 * Constraint.yCoeff)
+            $0.width.height.equalTo(plusSize)
+        }
+
         // Chips stack vertically on baby bar
         hChip.snp.makeConstraints {
             $0.centerX.equalToSuperview()
@@ -691,6 +772,24 @@ final class FamilyHeightView: UIView {
         }
     }
 
+    private func makePlusButton(selector: Selector) -> UIButton {
+        let b = UIButton(type: .system)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 10, weight: .bold)
+        b.setImage(UIImage(systemName: "plus", withConfiguration: cfg), for: .normal)
+        b.tintColor = UIColor(hexString: "#8b6dc4")
+        b.backgroundColor = .white
+        b.layer.cornerRadius = 11 * Constraint.yCoeff
+        b.layer.shadowColor = UIColor.black.cgColor
+        b.layer.shadowOpacity = 0.15
+        b.layer.shadowOffset = CGSize(width: 0, height: 1)
+        b.layer.shadowRadius = 3
+        b.addTarget(self, action: selector, for: .touchUpInside)
+        return b
+    }
+
+    @objc private func p1Tapped() { onParent1Tapped?() }
+    @objc private func p2Tapped() { onParent2Tapped?() }
+
     func update(p1H: Double?, babyH: Double?, babyW: Double?, babyHc: Double?,
                 p2H: Double?,
                 p1Type: GrowthComparisonData.ParentType,
@@ -700,15 +799,16 @@ final class FamilyHeightView: UIView {
 
         // Update silhouette icons
         let iconCfg = UIImage.SymbolConfiguration(pointSize: 22)
-        let womanIcon = UIImage(systemName: "figure.stand.dress", withConfiguration: iconCfg)
-        let manIcon   = UIImage(systemName: "figure.stand",       withConfiguration: iconCfg)
-        p1Icon.image = p1Type == .mother ? womanIcon : manIcon
-        p2Icon.image = p2Type == .mother ? womanIcon : manIcon
+        let womanIcon  = UIImage(systemName: "figure.stand.dress", withConfiguration: iconCfg)
+        let manIcon    = UIImage(systemName: "figure.stand",       withConfiguration: iconCfg)
+        p1Icon.image = (p1Type == .mother) ? womanIcon : manIcon
+        p2Icon.image = (p2Type == .mother) ? womanIcon : manIcon
 
-        // Show/hide right parent column for single parent
-        p2Container.isHidden  = isSingle
-        p2NameLbl.isHidden    = isSingle
-        p2HLbl.isHidden       = isSingle
+        // Show/hide right parent column
+        let hideP2 = isSingle || p2Type == .none
+        p2Container.isHidden  = hideP2
+        p2NameLbl.isHidden    = hideP2
+        p2HLbl.isHidden       = hideP2
 
         let maxActual = max([p1H, p2H].compactMap { $0 }.max() ?? 180, 1.0)
         let minH = maxBarH * 0.15

@@ -37,7 +37,9 @@ struct AddHeightComparisonView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     parentTypeSection
                     parent1Section
-                    parent2Section
+                    if parent2Type != .none {
+                        parent2Section
+                    }
                     babySection
                 }
                 .padding()
@@ -63,8 +65,8 @@ struct AddHeightComparisonView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(GrowthColors.textPrimary)
             HStack(spacing: 12) {
-                parentTypePicker(title: "Parent 1", selection: $parent1Type)
-                parentTypePicker(title: "Parent 2", selection: $parent2Type)
+                parentTypePicker(title: "Parent 1", selection: $parent1Type, isParent2: false)
+                parentTypePicker(title: "Parent 2", selection: $parent2Type, isParent2: true)
             }
         }
         .padding()
@@ -72,14 +74,22 @@ struct AddHeightComparisonView: View {
         .cornerRadius(16)
     }
 
-    private func parentTypePicker(title: String, selection: Binding<GrowthComparisonData.ParentType>) -> some View {
+    private func parentTypePicker(title: String,
+                                   selection: Binding<GrowthComparisonData.ParentType>,
+                                   isParent2: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
                 .foregroundColor(GrowthColors.textSecondary)
             Picker(title, selection: selection) {
-                Text("Mother").tag(GrowthComparisonData.ParentType.mother)
                 Text("Father").tag(GrowthComparisonData.ParentType.father)
+                Text("Mother").tag(GrowthComparisonData.ParentType.mother)
+                if isParent2 {
+                    Text("Parent 2").tag(GrowthComparisonData.ParentType.parent2)
+                    Text("Do not choose").tag(GrowthComparisonData.ParentType.none)
+                } else {
+                    Text("Parent 1").tag(GrowthComparisonData.ParentType.parent1)
+                }
             }
             .pickerStyle(.menu)
         }
@@ -155,7 +165,7 @@ struct AddHeightComparisonView: View {
             parent1Type: parent1Type,
             parent2Type: parent2Type,
             parent1HeightCm: parent1HeightCm,
-            parent2HeightCm: parent2HeightCm,
+            parent2HeightCm: parent2Type == .none ? nil : parent2HeightCm,
             babyHeightCm: babyHeightCm,
             parent1SkinToneIndex: parent1SkinIndex,
             parent2SkinToneIndex: parent2SkinIndex,

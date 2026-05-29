@@ -5,11 +5,17 @@ struct GrowthComparisonData: Codable, Equatable {
     enum ParentType: String, Codable, CaseIterable {
         case mother
         case father
+        case parent1
+        case parent2
+        case none
 
         var displayName: String {
             switch self {
-            case .mother: return "Mother"
-            case .father: return "Father"
+            case .mother:  return "Mother"
+            case .father:  return "Father"
+            case .parent1: return "Parent 1"
+            case .parent2: return "Parent 2"
+            case .none:    return ""
             }
         }
     }
@@ -51,8 +57,8 @@ struct GrowthComparisonData: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        parent1Type = try c.decode(ParentType.self, forKey: .parent1Type)
-        parent2Type = try c.decode(ParentType.self, forKey: .parent2Type)
+        parent1Type = (try? c.decode(ParentType.self, forKey: .parent1Type)) ?? .mother
+        parent2Type = (try? c.decode(ParentType.self, forKey: .parent2Type)) ?? .father
         parent1HeightCm = try c.decodeIfPresent(Double.self, forKey: .parent1HeightCm)
         parent2HeightCm = try c.decodeIfPresent(Double.self, forKey: .parent2HeightCm)
         babyHeightCm = try c.decodeIfPresent(Double.self, forKey: .babyHeightCm)

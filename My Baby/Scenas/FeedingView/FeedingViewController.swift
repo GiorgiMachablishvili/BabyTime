@@ -1,5 +1,7 @@
 import UIKit
 import SnapKit
+import UserNotifications
+import ActivityKit
 
 // MARK: - FeedingViewController
 
@@ -8,11 +10,11 @@ final class FeedingViewController: UIViewController {
     // MARK: - Section / Item
 
     private nonisolated enum Section: Int, CaseIterable, Sendable {
-        case weekCalendar, lastFeed, quickActions, todayLog
+        case weekCalendar, lastFeed, breastTimer, quickActions, todayLog
     }
 
     private nonisolated enum Item: Hashable, Sendable {
-        case weekCalendar, lastFeed, quickActions
+        case weekCalendar, lastFeed, breastTimer, quickActions
         case empty
         case log(UUID)
     }
@@ -22,6 +24,18 @@ final class FeedingViewController: UIViewController {
     private var logEntries: [FeedingLogEntry] = []
     private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
     private var expandedLogIDs: Set<UUID> = []
+
+    // MARK: Breast timer notification state
+
+    private var breastTimerStart: Date?
+    private var breastTimerSide  = "L"
+    private let breastNotifID    = "breastFeedingTimerNotification"
+    private let breastStartKey   = "activeBreastTimerStartTimestamp"
+    private let breastSideKey    = "activeBreastTimerSide"
+
+    // MARK: Breast timer Live Activity
+    // Stored as Any to avoid @available stored-property restriction; cast inside helpers.
+    private var _currentBreastActivity: Any? = nil
 
     // MARK: - Views
 
@@ -35,6 +49,7 @@ final class FeedingViewController: UIViewController {
         cv.register(BabyEmptyLogCell.self, forCellWithReuseIdentifier: BabyEmptyLogCell.reuseId)
         cv.register(FeedingWeekCalendarCell.self, forCellWithReuseIdentifier: FeedingWeekCalendarCell.reuseId)
         cv.register(FeedingLastFeedCell.self, forCellWithReuseIdentifier: FeedingLastFeedCell.reuseId)
+        cv.register(FeedingBreastTimerCell.self, forCellWithReuseIdentifier: FeedingBreastTimerCell.reuseId)
         cv.register(FeedingQuickActionsCell.self, forCellWithReuseIdentifier: FeedingQuickActionsCell.reuseId)
         cv.register(FeedingViewCell.self, forCellWithReuseIdentifier: FeedingViewCell.reuseId)
         cv.register(
@@ -77,6 +92,17 @@ final class FeedingViewController: UIViewController {
         setupUI()
         setupDataSource()
         loadData()
+
+        // Background / foreground handling for breast timer notification
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(breastAppDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(breastAppWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleBreastTimerShouldStop),
+            name: .breastTimerShouldStop, object: nil)
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -134,6 +160,36 @@ final class FeedingViewController: UIViewController {
                 cell.configure(lastEntry: self.logEntries.first)
                 return cell
 
+            case .breastTimer:
+                let cell = cv.dequeueReusableCell(withReuseIdentifier: FeedingBreastTimerCell.reuseId, for: indexPath) as! FeedingBreastTimerCell
+                cell.onStart = { [weak self] start, side in
+                    guard let self else { return }
+                    self.breastTimerStart = start
+                    self.breastTimerSide  = side
+                    UserDefaults.standard.set(start.timeIntervalSince1970, forKey: self.breastStartKey)
+                    UserDefaults.standard.set(side, forKey: self.breastSideKey)
+                    self.registerBreastNotificationCategories()
+                    self.startBreastLiveActivity(start: start, side: side)
+                }
+                cell.onSave = { [weak self] elapsed, side in
+                    guard let self else { return }
+                    // Clear notification state first so the handler won't double-save
+                    self.breastTimerStart = nil
+                    UserDefaults.standard.removeObject(forKey: self.breastStartKey)
+                    UserDefaults.standard.removeObject(forKey: self.breastSideKey)
+                    self.clearBreastNotification()
+                    self.stopBreastLiveActivity()
+                    // Persist the feeding entry
+                    let totalMin = Int(elapsed / 60)
+                    let totalSec = Int(elapsed.truncatingRemainder(dividingBy: 60))
+                    let value = totalMin > 0 ? "\(totalMin) min \(totalSec) sec" : "\(totalSec) sec"
+                    let tf = DateFormatter(); tf.dateFormat = "h:mm a"
+                    let df = DateFormatter(); df.dateFormat = "MMM d"
+                    let now = Date()
+                    self.saveEntry(type: .breast, volume: value, notes: "Side: \(side)", time: tf.string(from: now), date: df.string(from: now))
+                }
+                return cell
+
             case .quickActions:
                 let cell = cv.dequeueReusableCell(withReuseIdentifier: FeedingQuickActionsCell.reuseId, for: indexPath) as! FeedingQuickActionsCell
                 cell.onQuickLog = { [weak self] type in
@@ -180,7 +236,10 @@ final class FeedingViewController: UIViewController {
                 let title = Calendar.current.isDateInToday(self.selectedDate)
                     ? "Today"
                     : self.formatDate(self.selectedDate)
-                header.configureSimple(title: title)
+                header.configureTodayHeader(title: title)
+                header.onTapViewAll = { [weak self] in
+                    self?.openFeedingHistory()
+                }
             } else {
                 header.configureSimple(title: "")
             }
@@ -206,6 +265,16 @@ final class FeedingViewController: UIViewController {
                 let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .fractionalHeight(1)))
                 let group = NSCollectionLayoutGroup.horizontal(
                     layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(90 * Constraint.yCoeff)),
+                    subitems: [item]
+                )
+                let sec = NSCollectionLayoutSection(group: group)
+                sec.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16)
+                return sec
+
+            case .breastTimer:
+                let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(170 * Constraint.yCoeff)))
+                let group = NSCollectionLayoutGroup.horizontal(
+                    layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(170 * Constraint.yCoeff)),
                     subitems: [item]
                 )
                 let sec = NSCollectionLayoutSection(group: group)
@@ -265,6 +334,7 @@ final class FeedingViewController: UIViewController {
         snap.appendSections(Section.allCases)
         snap.appendItems([Item.weekCalendar], toSection: .weekCalendar)
         snap.appendItems([Item.lastFeed], toSection: .lastFeed)
+        snap.appendItems([Item.breastTimer], toSection: .breastTimer)
         snap.appendItems([Item.quickActions], toSection: .quickActions)
 
         let cal = Calendar.current
@@ -371,6 +441,126 @@ final class FeedingViewController: UIViewController {
         let df = DateFormatter()
         df.dateFormat = "EEEE, MMM d"
         return df.string(from: date)
+    }
+
+    private func openFeedingHistory() {
+        let vc = FeedingHistoryViewController()
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    // MARK: - Breast timer lock-screen notification
+
+    /// Posts lock-screen notification when app enters background with timer running.
+    @objc private func breastAppDidEnterBackground() {
+        guard breastTimerStart != nil else { return }
+        postBreastNotificationNow()
+    }
+
+    /// Removes the lock-screen notification when the app returns to foreground.
+    @objc private func breastAppWillEnterForeground() {
+        clearBreastNotification()
+    }
+
+    /// Handles the "Stop & Save" action from the lock screen.
+    @objc private func handleBreastTimerShouldStop() {
+        guard breastTimerStart != nil else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            // stopAndSave() → fires onSave → calls stopBreastLiveActivity()
+            let ip = IndexPath(item: 0, section: Section.breastTimer.rawValue)
+            (self.collectionView.cellForItem(at: ip) as? FeedingBreastTimerCell)?.stopAndSave()
+            // If cell is off-screen, onSave won't fire — end activity directly
+            self.stopBreastLiveActivity()
+        }
+    }
+
+    /// Registers the "Stop & Save" action category.
+    private func registerBreastNotificationCategories() {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .badge]) { granted, _ in
+            guard granted else { return }
+            let stop = UNNotificationAction(identifier: "STOP_BREAST",
+                                            title: "Stop & Save",
+                                            options: [.foreground])
+            let cat = UNNotificationCategory(identifier: "BREAST_RUNNING",
+                                             actions: [stop],
+                                             intentIdentifiers: [], options: [])
+            center.setNotificationCategories([cat])
+        }
+    }
+
+    /// Posts the breast-timer notification. Call only while backgrounded.
+    private func postBreastNotificationNow() {
+        guard let start = breastTimerStart else { return }
+        let center = UNUserNotificationCenter.current()
+
+        center.getNotificationSettings { [weak self] settings in
+            guard let self else { return }
+            guard settings.authorizationStatus == .authorized ||
+                  settings.authorizationStatus == .provisional else { return }
+
+            center.removeDeliveredNotifications(withIdentifiers: [self.breastNotifID])
+            center.removePendingNotificationRequests(withIdentifiers: [self.breastNotifID])
+
+            let elapsed  = max(0, Date().timeIntervalSince(start))
+            let m = Int(elapsed / 60)
+            let s = Int(elapsed.truncatingRemainder(dividingBy: 60))
+            let elapsedStr = m > 0 ? "\(m)m \(s)s" : "\(s)s"
+
+            let content  = UNMutableNotificationContent()
+            let babyName = BabyProfileStore.loadName() ?? "Baby"
+            content.title = "🤱 \(babyName) is breastfeeding"
+            content.body  = "Side \(self.breastTimerSide) · \(elapsedStr) elapsed"
+            content.categoryIdentifier = "BREAST_RUNNING"
+            content.sound = nil
+            content.interruptionLevel = .active
+
+            // Small delay so app is fully backgrounded before delivery
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
+            let request  = UNNotificationRequest(identifier: self.breastNotifID,
+                                                  content: content, trigger: trigger)
+            center.add(request)
+        }
+    }
+
+    private func clearBreastNotification() {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [breastNotifID])
+        center.removeDeliveredNotifications(withIdentifiers: [breastNotifID])
+    }
+
+    // MARK: - Live Activity helpers
+
+    private func startBreastLiveActivity(start: Date, side: String) {
+        guard #available(iOS 16.2, *) else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+
+        let babyName = BabyProfileStore.loadName() ?? "Baby"
+        let state = BreastTimerAttributes.ContentState(startTime: start,
+                                                       side: side,
+                                                       babyName: babyName)
+        let attrs = BreastTimerAttributes(sessionID: UUID().uuidString)
+
+        do {
+            let activity = try Activity<BreastTimerAttributes>.request(
+                attributes: attrs,
+                content: .init(state: state, staleDate: nil),
+                pushType: nil
+            )
+            _currentBreastActivity = activity
+        } catch {
+            // Live Activities not available or already running — fall back to notification-only
+            print("[BreastTimer] Live Activity request failed: \(error)")
+        }
+    }
+
+    private func stopBreastLiveActivity() {
+        guard #available(iOS 16.2, *) else { return }
+        guard let activity = _currentBreastActivity as? Activity<BreastTimerAttributes> else { return }
+        Task {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+        _currentBreastActivity = nil
     }
 }
 
@@ -1232,6 +1422,201 @@ final class FeedingQuickActionsCell: UICollectionViewCell {
             UIView.animate(withDuration: 0.1) { g.view?.transform = .identity }
         }
         onQuickLog?(types[tag])
+    }
+}
+
+// MARK: - FeedingBreastTimerCell
+
+final class FeedingBreastTimerCell: UICollectionViewCell {
+    static let reuseId = "FeedingBreastTimerCell"
+
+    /// Called the instant the timer starts. Provides (startDate, side "L"/"R").
+    var onStart: ((Date, String) -> Void)?
+
+    /// Called when the timer stops (user tapped Stop or external stopAndSave).
+    /// Provides (totalElapsed seconds, side "L"/"R").
+    var onSave: ((TimeInterval, String) -> Void)?
+
+    // MARK: State
+    private let accent = UIColor(hexString: "#E8613A")
+    private var selectedSide = "L"
+    private var isRunning = false
+    private var sessionStart: Date?
+    private var accumulatedSeconds: TimeInterval = 0
+    private var liveTimer: Timer?
+
+    // MARK: Views
+    private lazy var emojiLabel: UILabel = {
+        let l = UILabel()
+        l.text = "🤱"
+        l.font = .systemFont(ofSize: 20 * Constraint.yCoeff)
+        return l
+    }()
+
+    private lazy var titleLabel: UILabel = {
+        let l = UILabel()
+        l.attributedText = NSAttributedString(string: "BREASTFEEDING TIMER", attributes: [
+            .kern: 1.1,
+            .font: UIFont.systemFont(ofSize: 10 * Constraint.yCoeff, weight: .semibold),
+            .foregroundColor: UIColor(hexString: "#999999")
+        ])
+        return l
+    }()
+
+    private lazy var lBtn: UIButton = makeSideBtn(title: "L", tag: 0)
+    private lazy var rBtn: UIButton = makeSideBtn(title: "R", tag: 1)
+
+    private lazy var timerLabel: UILabel = {
+        let l = UILabel()
+        l.font = .monospacedDigitSystemFont(ofSize: 52 * Constraint.yCoeff, weight: .bold)
+        l.textColor = UIColor(hexString: "#222222")
+        l.text = "00:00"
+        l.textAlignment = .center
+        return l
+    }()
+
+    private lazy var startStopBtn: UIButton = {
+        let b = UIButton(type: .system)
+        b.setTitle("▶  Start Timer", for: .normal)
+        b.setTitleColor(.white, for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 16 * Constraint.yCoeff, weight: .semibold)
+        b.backgroundColor = UIColor(hexString: "#E8613A")
+        b.layer.cornerRadius = 22 * Constraint.yCoeff
+        b.addTarget(self, action: #selector(startStopTapped), for: .touchUpInside)
+        return b
+    }()
+
+    // MARK: Init
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        contentView.backgroundColor = .white
+        contentView.layer.cornerRadius = 16 * Constraint.yCoeff
+        contentView.clipsToBounds = true
+
+        contentView.addSubview(emojiLabel)
+        contentView.addSubview(titleLabel)
+        contentView.addSubview(lBtn)
+        contentView.addSubview(rBtn)
+        contentView.addSubview(timerLabel)
+        contentView.addSubview(startStopBtn)
+
+        emojiLabel.snp.makeConstraints {
+            $0.leading.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.top.equalToSuperview().inset(16 * Constraint.yCoeff)
+        }
+        titleLabel.snp.makeConstraints {
+            $0.leading.equalTo(emojiLabel.snp.trailing).offset(6 * Constraint.xCoeff)
+            $0.centerY.equalTo(emojiLabel)
+        }
+        rBtn.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(14 * Constraint.xCoeff)
+            $0.centerY.equalTo(emojiLabel)
+            $0.width.height.equalTo(34 * Constraint.yCoeff)
+        }
+        lBtn.snp.makeConstraints {
+            $0.trailing.equalTo(rBtn.snp.leading).offset(-8 * Constraint.xCoeff)
+            $0.centerY.equalTo(emojiLabel)
+            $0.width.height.equalTo(34 * Constraint.yCoeff)
+        }
+        timerLabel.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.top.equalTo(emojiLabel.snp.bottom).offset(6 * Constraint.yCoeff)
+        }
+        startStopBtn.snp.makeConstraints {
+            $0.leading.trailing.equalToSuperview().inset(16 * Constraint.xCoeff)
+            $0.top.equalTo(timerLabel.snp.bottom).offset(10 * Constraint.yCoeff)
+            $0.height.equalTo(46 * Constraint.yCoeff)
+            $0.bottom.equalToSuperview().inset(16 * Constraint.yCoeff)
+        }
+
+        updateSideButtons()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    deinit { liveTimer?.invalidate() }
+
+    // MARK: Helpers
+
+    private func makeSideBtn(title: String, tag: Int) -> UIButton {
+        let b = UIButton(type: .custom)
+        b.setTitle(title, for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 15 * Constraint.yCoeff, weight: .bold)
+        b.layer.cornerRadius = 17 * Constraint.yCoeff
+        b.layer.borderWidth = 1.5
+        b.layer.borderColor = UIColor(hexString: "#E8613A").cgColor
+        b.tag = tag
+        b.addTarget(self, action: #selector(sideTapped(_:)), for: .touchUpInside)
+        return b
+    }
+
+    private func updateSideButtons() {
+        for btn in [lBtn, rBtn] {
+            let isSelected = (btn.tag == 0 && selectedSide == "L") || (btn.tag == 1 && selectedSide == "R")
+            btn.backgroundColor = isSelected ? accent : .clear
+            btn.setTitleColor(isSelected ? .white : accent, for: .normal)
+        }
+    }
+
+    private func updateDisplay(elapsed: TimeInterval) {
+        let totalSeconds = Int(elapsed)
+        let m = totalSeconds / 60
+        let s = totalSeconds % 60
+        timerLabel.text = String(format: "%02d:%02d", m, s)
+    }
+
+    // MARK: Actions
+
+    @objc private func sideTapped(_ btn: UIButton) {
+        guard !isRunning else { return }   // side can't change while running
+        selectedSide = btn.tag == 0 ? "L" : "R"
+        updateSideButtons()
+    }
+
+    /// Stops the timer and fires `onSave`. Safe to call from outside (e.g. lock-screen action).
+    func stopAndSave() {
+        guard isRunning else { return }
+        liveTimer?.invalidate(); liveTimer = nil
+        isRunning = false
+        if let start = sessionStart { accumulatedSeconds += Date().timeIntervalSince(start) }
+        sessionStart = nil
+
+        let finalElapsed = accumulatedSeconds
+        onSave?(finalElapsed, selectedSide)
+
+        // Reset UI
+        accumulatedSeconds = 0
+        updateDisplay(elapsed: 0)
+        timerLabel.textColor = UIColor(hexString: "#222222")
+        startStopBtn.setTitle("▶  Start Timer", for: .normal)
+        startStopBtn.backgroundColor = accent
+        lBtn.isEnabled = true
+        rBtn.isEnabled = true
+    }
+
+    @objc private func startStopTapped() {
+        if isRunning {
+            stopAndSave()
+        } else {
+            // ── Start ────────────────────────────────────────────────────
+            let now = Date()
+            sessionStart = now
+            isRunning = true
+            timerLabel.textColor = accent
+            startStopBtn.setTitle("⏹  Stop & Save", for: .normal)
+            startStopBtn.backgroundColor = UIColor(hexString: "#c0392b")
+            lBtn.isEnabled = false
+            rBtn.isEnabled = false
+
+            onStart?(now, selectedSide)   // notify the VC so it can set up the notification
+
+            liveTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                guard let self, let start = self.sessionStart else { return }
+                self.updateDisplay(elapsed: self.accumulatedSeconds + Date().timeIntervalSince(start))
+            }
+            RunLoop.main.add(liveTimer!, forMode: .common)
+        }
     }
 }
 

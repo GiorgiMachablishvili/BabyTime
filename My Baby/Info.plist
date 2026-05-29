@@ -6,6 +6,10 @@
 	<string>My Baby needs camera access to take a profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>My Baby needs photo library access to choose a profile photo.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -19,19 +19,83 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         return true
     }
 
+    // Show the banner even while the app is in the foreground
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Sleep-in-progress notification: suppress sound/badge while foregrounded;
+        // just keep the list entry so the lock-screen banner stays available.
+        let id = notification.request.identifier
+        if id == "sleepInProgressNotification" || id == "breastFeedingTimerNotification" {
+            // Timer notifications: suppress banner while app is foreground (in-app UI shows instead)
+            completionHandler([.list])
+        } else {
+            completionHandler([.banner, .sound, .list])
+        }
+    }
+
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let userInfo = response.notification.request.content.userInfo
+        let actionID  = response.actionIdentifier
+        let userInfo  = response.notification.request.content.userInfo
+
+        // ── Sleep timer actions ───────────────────────────────────────────
+        switch actionID {
+        case "PAUSE_SLEEP":
+            NotificationCenter.default.post(name: .sleepTimerShouldPause, object: nil)
+        case "RESUME_SLEEP":
+            NotificationCenter.default.post(name: .sleepTimerShouldResume, object: nil)
+        case "STOP_SLEEP":
+            // Post so the VC handles it if alive; direct save as a fallback.
+            NotificationCenter.default.post(name: .sleepTimerShouldStop, object: nil)
+            SleepTimerNotificationHandler.stopAndSaveIfNeeded()
+        case "STOP_BREAST":
+            // Same dual-path pattern for the breastfeeding timer.
+            NotificationCenter.default.post(name: .breastTimerShouldStop, object: nil)
+            BreastTimerNotificationHandler.stopAndSaveIfNeeded()
+        default:
+            break
+        }
+
+        // ── Feeding reminder / other actions ─────────────────────────────
         if let idStr = userInfo["reminderId"] as? String {
             UserDefaults.standard.set(idStr, forKey: feedingReminderOpenIdKey)
         }
-        if let window = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .flatMap({ $0.windows })
-            .first(where: { $0.isKeyWindow }),
-           let tabBar = window.rootViewController as? MainTabBarController {
-            tabBar.selectedIndex = 1
+
+        // Navigate to the correct tab when the user taps the banner body
+        let category = response.notification.request.content.categoryIdentifier
+        if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+            if category.hasPrefix("SLEEP_") {
+                navigateToSleepTab()
+            } else if category == "BREAST_RUNNING" {
+                navigateToFeedingTab()
+            } else if userInfo["reminderId"] != nil {
+                navigateToFeedingTab()
+            }
+        } else if userInfo["reminderId"] != nil {
+            navigateToFeedingTab()
         }
+
         completionHandler()
+    }
+
+    // MARK: - Navigation helpers
+
+    private func navigateToSleepTab() {
+        guard let tabBar = keyTabBar() else { return }
+        tabBar.selectedIndex = 2   // adjust if Sleep is on a different index
+    }
+
+    private func navigateToFeedingTab() {
+        guard let tabBar = keyTabBar() else { return }
+        tabBar.selectedIndex = 1
+    }
+
+    private func keyTabBar() -> MainTabBarController? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first(where: { $0.isKeyWindow })
+            .flatMap { $0.rootViewController as? MainTabBarController }
     }
 
     // MARK: UISceneSession Lifecycle

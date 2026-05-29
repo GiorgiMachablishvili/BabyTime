@@ -27,9 +27,9 @@ extension DiaperType {
     }
     var badgeTitle: String {
         switch self {
-        case .wet:   return "Wet"
-        case .dirty: return "Dry"
-        case .mixed: return "Hard"
+        case .wet:   return "Pee"
+        case .dirty: return "Poop"
+        case .mixed: return "Both"
         }
     }
 }
