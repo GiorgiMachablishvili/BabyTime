@@ -49,27 +49,40 @@ enum BabyProfileStore {
         static let photo    = "baby_profile.photo_jpeg_data"
     }
 
+    // MARK: - In-memory cache
+    // Decoded once, served instantly on every subsequent call.
+    // Cleared on any save so data never goes stale.
+    private static var _cachedProfiles: [BabyProfile]?
+    private static var _cachedPhoto: UIImage?        // UIImage(data:) is expensive — cache separately
+
     // MARK: - Multi-profile API
 
     static func loadProfiles() -> [BabyProfile] {
+        if let cached = _cachedProfiles { return cached }   // ← instant return after first load
+        let result: [BabyProfile]
         if let data = defaults.data(forKey: profilesKey),
            let profiles = try? JSONDecoder().decode([BabyProfile].self, from: data),
            !profiles.isEmpty {
-            return profiles
+            result = profiles
+        } else {
+            // Migrate legacy single profile on first launch
+            var legacy = BabyProfile(
+                name:   defaults.string(forKey: Legacy.name) ?? "",
+                gender: defaults.string(forKey: Legacy.gender) ?? "Other"
+            )
+            if let ts = defaults.object(forKey: Legacy.birthday) as? Double {
+                legacy.birthdayTimestamp = ts
+            }
+            legacy.photoData = defaults.data(forKey: Legacy.photo)
+            result = [legacy]
         }
-        // Migrate legacy single profile on first launch
-        var legacy = BabyProfile(
-            name:    defaults.string(forKey: Legacy.name) ?? "",
-            gender:  defaults.string(forKey: Legacy.gender) ?? "Other"
-        )
-        if let ts = defaults.object(forKey: Legacy.birthday) as? Double {
-            legacy.birthdayTimestamp = ts
-        }
-        legacy.photoData = defaults.data(forKey: Legacy.photo)
-        return [legacy]
+        _cachedProfiles = result
+        return result
     }
 
     static func saveProfiles(_ profiles: [BabyProfile]) {
+        _cachedProfiles = profiles   // update cache — no need to re-decode on next read
+        _cachedPhoto    = nil        // photo data may have changed; force re-decode
         guard let data = try? JSONEncoder().encode(profiles) else { return }
         defaults.set(data, forKey: profilesKey)
     }
@@ -81,6 +94,7 @@ enum BabyProfileStore {
 
     static func setSelectedIndex(_ index: Int) {
         defaults.set(index, forKey: selectedIndexKey)
+        _cachedPhoto = nil   // selected profile changed; invalidate photo cache
     }
 
     static func currentProfile() -> BabyProfile? {
@@ -135,10 +149,13 @@ enum BabyProfileStore {
         let idx = selectedIndex()
         guard idx < profiles.count else { return }
         profiles[idx].photoData = image?.jpegData(compressionQuality: 0.85)
-        saveProfiles(profiles)
+        saveProfiles(profiles)   // saveProfiles already clears _cachedPhoto
     }
 
     static func loadPhoto() -> UIImage? {
-        currentProfile()?.photo
+        if let cached = _cachedPhoto { return cached }   // ← skip JPEG decode on repeat calls
+        let photo = currentProfile()?.photo              // UIImage(data:) runs only once
+        _cachedPhoto = photo
+        return photo
     }
 }

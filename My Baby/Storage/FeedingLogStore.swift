@@ -46,19 +46,16 @@ struct FeedingLogEntry: Codable {
 
 enum FeedingLogStore {
     private static let key = "feeding_log_items"
+    private static var _cache: [FeedingLogEntry]?  // in-memory cache; nil = not yet loaded
 
     static func load() -> [FeedingViewCell.ViewModel] {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let entries = try? JSONDecoder().decode([FeedingLogEntry].self, from: data) else {
-            return []
-        }
-        return entries.compactMap { entry -> FeedingViewCell.ViewModel? in
+        return loadEntries().compactMap { entry -> FeedingViewCell.ViewModel? in
             let type: FeedingViewCell.ViewModel.FeedingType
             switch entry.typeRaw {
-            case "breast": type = .breast
-            case "bottle": type = .bottle
+            case "breast":  type = .breast
+            case "bottle":  type = .bottle
             case "formula": type = .formula
-            case "solid": type = .solid
+            case "solid":   type = .solid
             default: return nil
             }
             return FeedingViewCell.ViewModel(
@@ -72,14 +69,18 @@ enum FeedingLogStore {
     }
 
     static func loadEntries() -> [FeedingLogEntry] {
+        if let cached = _cache { return cached }   // ← free after first load
         guard let data = UserDefaults.standard.data(forKey: key),
               let entries = try? JSONDecoder().decode([FeedingLogEntry].self, from: data) else {
+            _cache = []
             return []
         }
+        _cache = entries
         return entries
     }
 
     static func saveEntries(_ entries: [FeedingLogEntry]) {
+        _cache = entries                           // keep cache in sync; no re-decode needed
         guard let data = try? JSONEncoder().encode(entries) else { return }
         UserDefaults.standard.set(data, forKey: key)
     }
@@ -88,10 +89,10 @@ enum FeedingLogStore {
         let entries = viewModels.map { vm -> FeedingLogEntry in
             let raw: String
             switch vm.type {
-            case .breast: raw = "breast"
-            case .bottle: raw = "bottle"
+            case .breast:  raw = "breast"
+            case .bottle:  raw = "bottle"
             case .formula: raw = "formula"
-            case .solid: raw = "solid"
+            case .solid:   raw = "solid"
             }
             return FeedingLogEntry(
                 id: UUID(),
@@ -107,13 +108,13 @@ enum FeedingLogStore {
     }
 
     static func add(_ viewModel: FeedingViewCell.ViewModel) {
-        var entries = loadEntries()
+        var entries = loadEntries()  // hits cache — free
         let raw: String
         switch viewModel.type {
-        case .breast: raw = "breast"
-        case .bottle: raw = "bottle"
+        case .breast:  raw = "breast"
+        case .bottle:  raw = "bottle"
         case .formula: raw = "formula"
-        case .solid: raw = "solid"
+        case .solid:   raw = "solid"
         }
         let entry = FeedingLogEntry(
             id: UUID(),
@@ -125,6 +126,6 @@ enum FeedingLogStore {
             savedAtEpochSeconds: Date().timeIntervalSince1970
         )
         entries.insert(entry, at: 0)
-        saveEntries(entries)
+        saveEntries(entries)         // updates cache + writes to UserDefaults
     }
 }
