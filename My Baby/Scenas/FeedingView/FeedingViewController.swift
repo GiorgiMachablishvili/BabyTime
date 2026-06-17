@@ -397,14 +397,28 @@ final class FeedingViewController: UIViewController {
 
     private func saveEntry(type: FeedingTypeView.FeedingType, volume: String?, notes: String?, time: String, date: String) {
         let vmType: FeedingViewCell.ViewModel.FeedingType
+        let typeRaw: String
         switch type {
-        case .breast: vmType = .breast
-        case .bottle: vmType = .bottle
-        case .formula: vmType = .formula
-        case .solid: vmType = .solid
+        case .breast:  vmType = .breast;  typeRaw = "breast"
+        case .bottle:  vmType = .bottle;  typeRaw = "bottle"
+        case .formula: vmType = .formula; typeRaw = "formula"
+        case .solid:   vmType = .solid;   typeRaw = "solid"
         }
+
+        let entry = FeedingLogEntry(
+            typeRaw: typeRaw,
+            volumeText: volume,
+            notesText: notes,
+            timeText: time,
+            dateText: date,
+            savedAtEpochSeconds: Date().timeIntervalSince1970
+        )
         FeedingLogStore.add(FeedingViewCell.ViewModel(type: vmType, volumeText: volume, notesText: notes, timeText: time, dateText: date))
         loadData()
+
+        if AuthStore.isLoggedIn {
+            APIClient.addFeeding(entry: entry) { _ in }
+        }
     }
 
     private func confirmDelete(id: UUID) {

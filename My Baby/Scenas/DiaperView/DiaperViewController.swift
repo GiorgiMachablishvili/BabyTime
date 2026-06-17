@@ -280,6 +280,15 @@ final class DiaperViewController: UIViewController {
         items.insert(item, at: 0)
         saveToStore()
         applySnapshot(animated: true)
+        if AuthStore.isLoggedIn {
+            let typeRaw: String
+            switch type {
+            case .wet:   typeRaw = "wet"
+            case .mixed: typeRaw = "mixed"
+            case .dirty: typeRaw = "dirty"
+            }
+            APIClient.addDiaper(id: item.id, typeRaw: typeRaw, note: note, date: item.date) { _ in }
+        }
     }
 
     // MARK: - Setup

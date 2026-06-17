@@ -596,6 +596,29 @@ final class SettingsViewController: UIViewController {
         view.endEditing(true)
         rebuildSwitcher()
         showSaved()
+        pushProfileToBackend(profiles[selectedIndex])
+    }
+
+    private func pushProfileToBackend(_ profile: BabyProfile) {
+        guard let profileId = AuthStore.profileId else {
+            // No profile on server yet — create one
+            APIClient.createProfile(
+                name: profile.name.isEmpty ? "My Baby" : profile.name,
+                birthday: profile.birthdayTimestamp,
+                gender: profile.gender,
+                photoBase64: profile.photoData?.base64EncodedString()
+            ) { result in
+                if case .success(let p) = result { AuthStore.profileId = p.id }
+            }
+            return
+        }
+        APIClient.updateProfile(
+            id: profileId,
+            name: profile.name,
+            birthday: profile.birthdayTimestamp,
+            gender: profile.gender,
+            photoBase64: nil
+        ) { _ in }
     }
 
     private func profileBirthdayFromPicker() -> Date? {
@@ -905,7 +928,8 @@ extension SettingsViewController: UIImagePickerControllerDelegate, UINavigationC
 
         var profiles = BabyProfileStore.loadProfiles()
         guard selectedIndex < profiles.count else { return }
-        profiles[selectedIndex].photoData = image.jpegData(compressionQuality: 0.85)
+        let photoData = image.jpegData(compressionQuality: 0.85)
+        profiles[selectedIndex].photoData = photoData
         BabyProfileStore.saveProfiles(profiles)
         self.profiles = profiles
 
@@ -914,6 +938,13 @@ extension SettingsViewController: UIImagePickerControllerDelegate, UINavigationC
         profilePhotoButton.contentHorizontalAlignment = .fill
         profilePhotoButton.contentVerticalAlignment   = .fill
         rebuildSwitcher()
+
+        if let profileId = AuthStore.profileId, let data = photoData {
+            APIClient.updateProfile(
+                id: profileId, name: nil, birthday: nil, gender: nil,
+                photoBase64: data.base64EncodedString()
+            ) { _ in }
+        }
     }
 
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {

@@ -79,6 +79,43 @@ final class DiaperHistoryViewController: UIViewController {
             .map { (date: $0.key, items: $0.value.sorted { $0.date > $1.date }) }
     }
 
+    private func fetchFromBackend() {
+        APIClient.getDiapers { [weak self] result in
+            guard let self, case .success(let responses) = result else { return }
+            let iso = ISO8601DateFormatter()
+            let serverItems: [DiaperLogItem] = responses.compactMap { r in
+                guard let uuid = UUID(uuidString: r.id),
+                      let date = iso.date(from: r.date) else { return nil }
+                let type: DiaperType
+                switch r.type_raw {
+                case "wet":   type = .wet
+                case "mixed": type = .mixed
+                case "dirty": type = .dirty
+                default: return nil
+                }
+                return DiaperLogItem(id: uuid, type: type, note: r.note, date: date)
+            }
+            let serverIDs = Set(serverItems.map { $0.id })
+            let localOnly = self.allItems.filter { !serverIDs.contains($0.id) }
+            let merged = (serverItems + localOnly).sorted { $0.date > $1.date }
+
+            let entries = merged.map { item -> DiaperLogEntry in
+                let raw: String
+                switch item.type {
+                case .wet:   raw = "wet"
+                case .mixed: raw = "mixed"
+                case .dirty: raw = "dirty"
+                }
+                return DiaperLogEntry(id: item.id, typeRaw: raw, note: item.note, date: item.date)
+            }
+            DiaperLogStore.save(entries)
+
+            self.allItems = merged
+            self.buildSections()
+            self.applySnapshot()
+        }
+    }
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -89,6 +126,7 @@ final class DiaperHistoryViewController: UIViewController {
         setupCollectionView()
         setupDataSource()
         applySnapshot()
+        if AuthStore.isLoggedIn { fetchFromBackend() }
 
         // Floating log button
         view.addSubview(logButton)

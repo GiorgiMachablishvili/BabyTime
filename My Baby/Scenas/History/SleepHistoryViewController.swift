@@ -7,7 +7,7 @@ final class SleepHistoryViewController: UIViewController {
 
     // MARK: - Data
 
-    private let allSessions: [SleepSession]
+    private var allSessions: [SleepSession]
     private var sections: [(date: Date, sessions: [SleepSession])] = []
 
     private static let statsItemID  = "__sleep_stats__"
@@ -57,6 +57,29 @@ final class SleepHistoryViewController: UIViewController {
         setupCollectionView()
         setupDataSource()
         applySnapshot()
+        fetchFromBackend()
+    }
+
+    private func fetchFromBackend() {
+        guard AuthStore.isLoggedIn else { return }
+        APIClient.getSleep { [weak self] result in
+            guard let self, case .success(let responses) = result else { return }
+            let iso = ISO8601DateFormatter()
+            let serverSessions = responses.compactMap { r -> SleepSession? in
+                guard let id = UUID(uuidString: r.id),
+                      let start = iso.date(from: r.start),
+                      let end = iso.date(from: r.end) else { return nil }
+                return SleepSession(id: id, start: start, end: end)
+            }
+            let localSessions = SleepSessionStore.load()
+            let serverIDs = Set(serverSessions.map { $0.id })
+            let localOnly = localSessions.filter { !serverIDs.contains($0.id) }
+            let merged = (serverSessions + localOnly).sorted { $0.start > $1.start }
+            SleepSessionStore.save(merged)
+            self.allSessions = merged
+            self.buildSections()
+            self.applySnapshot()
+        }
     }
 
     @objc private func backTapped() {

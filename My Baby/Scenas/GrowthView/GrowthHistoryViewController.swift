@@ -123,8 +123,10 @@ final class GrowthHistoryViewController: UIViewController {
         v.onClose = { [weak self] in self?.dismissSheet() }
         v.onSave  = { [weak self] value, pct, date in
             guard let self else { return }
-            self.allMeasurements.append(GrowthMeasurement(typeRaw: self.addSheet.measurementType, value: value, date: date, percentile: pct))
+            let m = GrowthMeasurement(typeRaw: self.addSheet.measurementType, value: value, date: date, percentile: pct)
+            self.allMeasurements.append(m)
             GrowthMeasurementStore.save(self.allMeasurements)
+            if AuthStore.isLoggedIn { APIClient.addGrowthMeasurement(m) { _ in } }
             self.dismissSheet()
             self.refreshAll()
         }
@@ -165,6 +167,25 @@ final class GrowthHistoryViewController: UIViewController {
         setupConstraints()
         selectSegment(0)
         refreshAvatar()
+        if AuthStore.isLoggedIn { fetchFromBackend() }
+    }
+
+    private func fetchFromBackend() {
+        APIClient.getGrowthMeasurements { [weak self] result in
+            guard let self, case .success(let responses) = result else { return }
+            let iso = ISO8601DateFormatter()
+            let serverItems: [GrowthMeasurement] = responses.compactMap { r in
+                guard let uuid = UUID(uuidString: r.id),
+                      let date = iso.date(from: r.date) else { return nil }
+                return GrowthMeasurement(id: uuid, typeRaw: r.type_raw, value: r.value, date: date, percentile: r.percentile.map { Int($0) })
+            }
+            let serverIDs = Set(serverItems.map { $0.id })
+            let localOnly = self.allMeasurements.filter { !serverIDs.contains($0.id) }
+            let merged = (serverItems + localOnly).sorted { $0.date > $1.date }
+            GrowthMeasurementStore.save(merged)
+            self.allMeasurements = merged
+            self.refreshAll()
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {

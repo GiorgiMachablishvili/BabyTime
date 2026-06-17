@@ -163,6 +163,38 @@ final class DoctorVisitViewController: UIViewController {
         let photo = BabyProfileStore.loadPhoto()
         topBar.configure(name: name, photo: photo)
         applySnapshot()
+        if AuthStore.isLoggedIn { fetchFromBackend() }
+    }
+
+    private func fetchFromBackend() {
+        APIClient.getDoctorVisits { [weak self] result in
+            guard let self, case .success(let responses) = result else { return }
+            let iso = ISO8601DateFormatter()
+            let serverVisits: [DoctorVisit] = responses.compactMap { r in
+                guard let uuid = UUID(uuidString: r.id),
+                      let date = iso.date(from: r.visit_date) else { return nil }
+                return DoctorVisit(
+                    id: uuid,
+                    doctorName: r.doctor_name,
+                    specialty: r.specialty,
+                    clinic: r.clinic,
+                    visitDate: date,
+                    visitType: r.visit_type,
+                    visitTitle: r.visit_title,
+                    notes: r.notes,
+                    weightKg: r.weight_kg,
+                    heightCm: r.height_cm,
+                    prescriptions: r.prescriptions.isEmpty ? [] : r.prescriptions.components(separatedBy: ","),
+                    isCompleted: r.is_completed
+                )
+            }
+            let serverIDs = Set(serverVisits.map { $0.id })
+            let localOnly = self.visits.filter { !serverIDs.contains($0.id) }
+            let merged = (serverVisits + localOnly).sorted { $0.visitDate > $1.visitDate }
+            DoctorVisitStore.save(merged)
+            self.visits = merged
+            self.applySnapshot()
+        }
     }
 
     private func applySnapshot() {
@@ -206,13 +238,17 @@ final class DoctorVisitViewController: UIViewController {
         let alert = UIAlertController(title: visit.visitTitle, message: "\(visit.doctorName)\n\(visit.fullDateTimeString)", preferredStyle: .actionSheet)
         alert.addAction(UIAlertAction(title: "Mark completed", style: .default) { [weak self] _ in
             var v = visit; v.isCompleted = true
-            DoctorVisitStore.upsert(v); self?.loadData()
+            DoctorVisitStore.upsert(v)
+            if AuthStore.isLoggedIn { APIClient.upsertDoctorVisit(v) { _ in } }
+            self?.loadData()
         })
         alert.addAction(UIAlertAction(title: "Edit details", style: .default) { [weak self] _ in
             self?.presentEditVisitDetails(visit: visit)
         })
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-            DoctorVisitStore.delete(id: visit.id); self?.loadData()
+            DoctorVisitStore.delete(id: visit.id)
+            if AuthStore.isLoggedIn { APIClient.deleteDoctorVisit(id: visit.id) { _ in } }
+            self?.loadData()
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)
@@ -228,6 +264,7 @@ final class DoctorVisitViewController: UIViewController {
             if let title = alert?.textFields?[0].text, !title.isEmpty { v.visitTitle = title }
             if let doctor = alert?.textFields?[1].text { v.doctorName = doctor }
             DoctorVisitStore.upsert(v)
+            if AuthStore.isLoggedIn { APIClient.upsertDoctorVisit(v) { _ in } }
             self.loadData()
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -241,7 +278,9 @@ final class DoctorVisitViewController: UIViewController {
     private func deleteVisit(id: UUID) {
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-            DoctorVisitStore.delete(id: id); self?.loadData()
+            DoctorVisitStore.delete(id: id)
+            if AuthStore.isLoggedIn { APIClient.deleteDoctorVisit(id: id) { _ in } }
+            self?.loadData()
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)

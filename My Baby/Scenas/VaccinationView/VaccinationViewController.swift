@@ -157,6 +157,37 @@ final class VaccinationViewController: UIViewController, UIAdaptivePresentationC
         let name = BabyProfileStore.loadName() ?? "Baby"
         headerView.configure(name: name, birthday: BabyProfileStore.loadBirthday(), photo: BabyProfileStore.loadPhoto())
         applySnapshot()
+        if AuthStore.isLoggedIn { fetchVaccinesFromBackend() }
+    }
+
+    private func fetchVaccinesFromBackend() {
+        APIClient.getVaccines { [weak self] result in
+            guard let self, case .success(let responses) = result else { return }
+            let serverVaccines: [Vaccine] = responses.compactMap { r in
+                guard let uuid = UUID(uuidString: r.id) else { return nil }
+                return Vaccine(
+                    id: uuid,
+                    name: r.name,
+                    fullName: r.full_name,
+                    ageRange: r.age_range,
+                    dueDate: r.due_date_timestamp.map { Date(timeIntervalSince1970: $0) },
+                    scheduledDate: r.scheduled_timestamp.map { Date(timeIntervalSince1970: $0) },
+                    scheduledHour: r.scheduled_hour.map { Int($0) },
+                    scheduledMinute: r.scheduled_minute.map { Int($0) },
+                    completedDate: r.completed_timestamp.map { Date(timeIntervalSince1970: $0) },
+                    doseNumber: r.dose_number.map { Int($0) },
+                    totalDoses: r.total_doses.map { Int($0) },
+                    doctorName: r.doctor_name,
+                    notes: r.notes
+                )
+            }
+            let serverIDs = Set(serverVaccines.map { $0.id })
+            let localOnly = self.vaccines.filter { !serverIDs.contains($0.id) }
+            let merged = serverVaccines + localOnly
+            VaccineStore.save(merged)
+            self.vaccines = merged
+            self.applySnapshot()
+        }
     }
 
     private func applySnapshot() {
@@ -204,6 +235,7 @@ final class VaccinationViewController: UIViewController, UIAdaptivePresentationC
             var v = vaccine
             v.completedDate = Date()
             VaccineStore.upsert(v)
+            if AuthStore.isLoggedIn { APIClient.upsertVaccine(v) { _ in } }
             self?.loadData()
         })
         alert.addAction(UIAlertAction(title: "Edit details", style: .default) { [weak self] _ in
@@ -211,6 +243,7 @@ final class VaccinationViewController: UIViewController, UIAdaptivePresentationC
         })
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             VaccineStore.delete(id: vaccine.id)
+            if AuthStore.isLoggedIn { APIClient.deleteVaccine(id: vaccine.id) { _ in } }
             self?.loadData()
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -227,6 +260,7 @@ final class VaccinationViewController: UIViewController, UIAdaptivePresentationC
             if let name = alert?.textFields?[0].text, !name.isEmpty { v.name = name }
             if let full = alert?.textFields?[1].text, !full.isEmpty { v.fullName = full }
             VaccineStore.upsert(v)
+            if AuthStore.isLoggedIn { APIClient.upsertVaccine(v) { _ in } }
             self.loadData()
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))

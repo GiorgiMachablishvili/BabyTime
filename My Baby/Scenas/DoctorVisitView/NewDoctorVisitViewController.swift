@@ -616,6 +616,7 @@ final class NewDoctorVisitViewController: UIViewController {
         )
 
         DoctorVisitStore.upsert(visit)
+        if AuthStore.isLoggedIn { APIClient.upsertDoctorVisit(visit) { _ in } }
         scheduleNotifications(doctorName: doctor, visitDate: visitDate, notifyDays: selectedNotifyDays)
 
         dismiss(animated: true) { [weak self] in

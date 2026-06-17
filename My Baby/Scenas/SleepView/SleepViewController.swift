@@ -380,6 +380,34 @@ final class SleepViewController: UIViewController {
         headerView.configure(name: name, birthday: BabyProfileStore.loadBirthday(), photo: BabyProfileStore.loadPhoto())
         applySnapshot()
         updateStartButton()
+        fetchFromBackend()
+    }
+
+    private func fetchFromBackend() {
+        guard AuthStore.isLoggedIn else { return }
+        APIClient.getSleepGoal { [weak self] result in
+            if case .success(let g) = result {
+                self?.sleepGoalHours = g.goal_hours
+                self?.applySnapshot()
+            }
+        }
+        APIClient.getSleep { [weak self] result in
+            guard let self, case .success(let responses) = result else { return }
+            let iso = ISO8601DateFormatter()
+            let serverSessions = responses.compactMap { r -> SleepSession? in
+                guard let id = UUID(uuidString: r.id),
+                      let start = iso.date(from: r.start),
+                      let end = iso.date(from: r.end) else { return nil }
+                return SleepSession(id: id, start: start, end: end)
+            }
+            let localSessions = SleepSessionStore.load()
+            let serverIDs = Set(serverSessions.map { $0.id })
+            let localOnly = localSessions.filter { !serverIDs.contains($0.id) }
+            let merged = (serverSessions + localOnly).sorted { $0.start > $1.start }
+            SleepSessionStore.save(merged)
+            self.sessions = merged
+            self.applySnapshot()
+        }
     }
 
     private func sessionsForSelectedDate() -> [SleepSession] {
@@ -462,6 +490,7 @@ final class SleepViewController: UIViewController {
             SleepSessionStore.save(sessions)
             activeStartDate = nil
             selectedDate = Calendar.current.startOfDay(for: start)
+            if AuthStore.isLoggedIn { APIClient.addSleep(session: session) { _ in } }
 
             // Reset pause button icon for next session
             let cfg = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
@@ -485,6 +514,7 @@ final class SleepViewController: UIViewController {
             self.sessions.sort { $0.start > $1.start }
             SleepSessionStore.save(self.sessions)
             self.applySnapshot()
+            if AuthStore.isLoggedIn { APIClient.addSleep(session: session) { _ in } }
         }
         vc.modalPresentationStyle = .fullScreen
         present(vc, animated: true)
@@ -515,6 +545,7 @@ final class SleepViewController: UIViewController {
                   let hours = Double(text), hours > 0, hours <= 24 else { return }
             self.sleepGoalHours = hours
             self.applySnapshot()
+            if AuthStore.isLoggedIn { APIClient.setSleepGoal(hours: hours) { _ in } }
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)

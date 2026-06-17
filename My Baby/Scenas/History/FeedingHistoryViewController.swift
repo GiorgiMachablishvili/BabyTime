@@ -60,10 +60,39 @@ final class FeedingHistoryViewController: UIViewController {
 
     // MARK: Data
     private func reload() {
-        allEntries = FeedingLogStore.loadEntries()
-            .sorted { ($0.savedAtEpochSeconds ?? 0) > ($1.savedAtEpochSeconds ?? 0) }
+        applyEntries(FeedingLogStore.loadEntries())
 
-        // Group by calendar day
+        guard AuthStore.isLoggedIn else { return }
+        APIClient.getFeedings { [weak self] result in
+            guard let self, case .success(let responses) = result else { return }
+
+            let serverEntries = responses.compactMap { r -> FeedingLogEntry? in
+                guard let id = UUID(uuidString: r.id) else { return nil }
+                return FeedingLogEntry(
+                    id: id,
+                    typeRaw: r.type_raw,
+                    volumeText: r.volume_text,
+                    notesText: r.notes_text,
+                    timeText: r.time_text,
+                    dateText: r.date_text,
+                    savedAtEpochSeconds: r.saved_at_epoch
+                )
+            }
+
+            let localEntries = FeedingLogStore.loadEntries()
+            let serverIDs = Set(serverEntries.map { $0.id })
+            let localOnly = localEntries.filter { !serverIDs.contains($0.id) }
+            let merged = (serverEntries + localOnly)
+                .sorted { ($0.savedAtEpochSeconds ?? 0) > ($1.savedAtEpochSeconds ?? 0) }
+
+            FeedingLogStore.saveEntries(merged)
+            self.applyEntries(merged)
+        }
+    }
+
+    private func applyEntries(_ entries: [FeedingLogEntry]) {
+        allEntries = entries.sorted { ($0.savedAtEpochSeconds ?? 0) > ($1.savedAtEpochSeconds ?? 0) }
+
         var seen:  [String: [FeedingLogEntry]] = [:]
         var order: [String] = []
         let cal = Calendar.current

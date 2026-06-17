@@ -426,13 +426,20 @@ final class GrowthViewController: UIViewController {
 
         var measurements = GrowthMeasurementStore.load()
         let date = selectedDate
-        if let h  = babyH()  { measurements.append(GrowthMeasurement(typeRaw: "height", value: h,  date: date, percentile: nil)) }
-        if let w  = babyW()  { measurements.append(GrowthMeasurement(typeRaw: "weight", value: w,  date: date, percentile: nil)) }
-        if let hc = babyHc() { measurements.append(GrowthMeasurement(typeRaw: "head",   value: hc, date: date, percentile: nil)) }
+        var newMeasurements: [GrowthMeasurement] = []
+        if let h  = babyH()  { newMeasurements.append(GrowthMeasurement(typeRaw: "height", value: h,  date: date, percentile: nil)) }
+        if let w  = babyW()  { newMeasurements.append(GrowthMeasurement(typeRaw: "weight", value: w,  date: date, percentile: nil)) }
+        if let hc = babyHc() { newMeasurements.append(GrowthMeasurement(typeRaw: "head",   value: hc, date: date, percentile: nil)) }
+        measurements.append(contentsOf: newMeasurements)
         GrowthMeasurementStore.save(measurements)
 
         if let h = babyH() { GrowthComparisonStore.appendHistoryEntry(babyHeightCm: h) }
         updateFamilyView()
+
+        if AuthStore.isLoggedIn {
+            for m in newMeasurements { APIClient.addGrowthMeasurement(m) { _ in } }
+            APIClient.setGrowthComparison(compData) { _ in }
+        }
 
         let alert = UIAlertController(title: "Saved!", message: nil, preferredStyle: .alert)
         present(alert, animated: true)

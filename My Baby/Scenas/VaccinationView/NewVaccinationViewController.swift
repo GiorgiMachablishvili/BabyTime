@@ -548,6 +548,7 @@ final class NewVaccinationViewController: UIViewController {
         )
 
         VaccineStore.upsert(vaccine)
+        if AuthStore.isLoggedIn { APIClient.upsertVaccine(vaccine) { _ in } }
         scheduleNotifications(vaccineName: name, adminDate: scheduledDateTime, notifyDays: selectedNotifyDays)
         dismiss(animated: true) { [weak self] in
             self?.onSave?()

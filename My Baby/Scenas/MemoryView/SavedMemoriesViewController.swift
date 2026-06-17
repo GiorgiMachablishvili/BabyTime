@@ -246,6 +246,26 @@ final class SavedMemoriesViewController: UIViewController {
     private func loadAndApply() {
         allMemories = BabyMemoryStore.load()
         applySnapshot()
+        if AuthStore.isLoggedIn { fetchFromBackend() }
+    }
+
+    private func fetchFromBackend() {
+        APIClient.getMemories { [weak self] result in
+            guard let self, case .success(let responses) = result else { return }
+            let iso = ISO8601DateFormatter()
+            let serverMemories: [BabyMemory] = responses.compactMap { r in
+                guard let uuid = UUID(uuidString: r.id),
+                      let date = iso.date(from: r.date),
+                      let category = BabyMemory.Category(rawValue: r.category) else { return nil }
+                return BabyMemory(id: uuid, title: r.title, date: date, text: r.text, category: category)
+            }
+            let serverIDs = Set(serverMemories.map { $0.id })
+            let localOnly = self.allMemories.filter { !serverIDs.contains($0.id) }
+            let merged = (serverMemories + localOnly).sorted { $0.date > $1.date }
+            BabyMemoryStore.save(merged)
+            self.allMemories = merged
+            self.applySnapshot()
+        }
     }
 
     private func applySnapshot() {
@@ -279,6 +299,7 @@ final class SavedMemoriesViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             guard let self else { return }
             BabyMemoryStore.delete(id: memory.id)
+            if AuthStore.isLoggedIn { APIClient.deleteMemory(id: memory.id) { _ in } }
             self.allMemories.removeAll { $0.id == memory.id }
             self.applySnapshot()
         })

@@ -410,6 +410,7 @@ final class MemoryViewController: UIViewController {
         let memory = BabyMemory(id: UUID(), title: title, date: datePicker.date, text: text, category: formCategory)
         memories.insert(memory, at: 0)
         BabyMemoryStore.save(memories)
+        if AuthStore.isLoggedIn { APIClient.addMemory(memory) { _ in } }
         titleField.text = ""
         memoryTextView.text = placeholderText
         memoryTextView.textColor = .placeholderText

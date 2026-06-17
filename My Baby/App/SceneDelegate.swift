@@ -18,7 +18,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = (scene as? UIWindowScene) else { return }
 
         let hasSeenWelcome = UserDefaults.standard.bool(forKey: "hasSeenWelcome")
-        let rootVC = hasSeenWelcome ? MainTabBarController() : WelcomeViewController()
+        let rootVC: UIViewController
+        if !hasSeenWelcome {
+            rootVC = WelcomeViewController()
+        } else if !AuthStore.isLoggedIn {
+            rootVC = AuthViewController()
+        } else {
+            rootVC = MainTabBarController()
+        }
 
         window = UIWindow(frame: windowScene.coordinateSpace.bounds)
         window?.windowScene = windowScene
