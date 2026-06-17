@@ -9,8 +9,6 @@ import UIKit
 import CoreData
 import UserNotifications
 
-private let feedingReminderOpenIdKey = "FeedingReminderOpenReminderId"
-
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
@@ -56,11 +54,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             break
         }
 
-        // ── Feeding reminder / other actions ─────────────────────────────
-        if let idStr = userInfo["reminderId"] as? String {
-            UserDefaults.standard.set(idStr, forKey: feedingReminderOpenIdKey)
-        }
-
         // Navigate to the correct tab when the user taps the banner body
         let category = response.notification.request.content.categoryIdentifier
         if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
@@ -68,11 +61,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 navigateToSleepTab()
             } else if category == "BREAST_RUNNING" {
                 navigateToFeedingTab()
-            } else if userInfo["reminderId"] != nil {
-                navigateToFeedingTab()
             }
-        } else if userInfo["reminderId"] != nil {
-            navigateToFeedingTab()
         }
 
         completionHandler()
